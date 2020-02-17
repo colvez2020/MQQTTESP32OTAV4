@@ -189,7 +189,7 @@ void MQTT_publish_topic(char* MQTT_OUTBONE_TOPIC,char* info)
   ESP32_MQTT_client.publish(MQTT_OUTBONE_TOPIC,info);
 }
 
-
+//linea modificada en casa
 char MQTT_reconnect(void) 
 {
 
