@@ -184,7 +184,23 @@ bool MQTT_Maintenice_connect(void)
 }
 
 
+void MQTT_Atributes_config(void)
+{
+  StaticJsonDocument<200> DOC_JSON_atributos;
+  
+  read_flashESP32(Add_flash(TYPE_PARAMETROS_CFG),
+                  Data_size(TYPE_PARAMETROS_CFG),
+                  (char*)&ESP32_Parametros);
+  //Parametos de caja congiguracion del USUARIO-WIFI
+  DOC_JSON_atributos["SSID"]
+  DOC_JSON_atributos["SSIDPW"]
+  DOC_JSON_atributos["RED_OP"]
+  DOC_JSON_atributos["CAJA_ID"]
+  DOC_JSON_atributos["CONTRATO"]
+  DOC_JSON_atributos["USER"]
+  DOC_JSON_atributos["TLF"]
 
+}
 
 //linea modificada en casa
 char MQTT_reconnect(void) 
@@ -208,6 +224,8 @@ char MQTT_reconnect(void)
   {
     ESP32_MQTT_client.subscribe("v1/devices/me/rpc/request/+"); //llegan las peticiones de botones, indicador y perillas
     ESP32_MQTT_client.subscribe("v1/devices/me/attributes");    //llegan las peticiones de los cuadro de dialogo
+    //Mando todos los atributos del dispositivo
+    MQTT_Atributes_config()
   } 
   else 
   {
@@ -293,11 +311,10 @@ void MQTT_callback(char* topic, byte* payload, unsigned int len)
         MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);
       }
       
-      if (methodName.equals("GET_RELAY")) //Ordena cambio de relay
+      if (methodName.equals("GET_RELAY")) //Pide el estado actual del relay
       {
         ESP32_Topic_respuesta = String(topic);
         ESP32_Topic_respuesta.replace("request", "response");
-       // DOC_JSON_Respuesta["method"]=DOC_JSON_payload["method"];
         if(test==0)
         {
           DOC_JSON_Respuesta["RELEY_STD"]=false;
@@ -317,7 +334,8 @@ void MQTT_callback(char* topic, byte* payload, unsigned int len)
         MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);
         MQTT_publish_topic("v1/devices/me/attributes",JSON_respuesta_buffer);
       }
-      /* if (methodName.equals("GET_LED_RELAY")) //Ordena cambio de relay
+
+      if (methodName.equals("GET_LED_RELAY")) //Controla la luz indicadora de conexcion electrica.
       {
         ESP32_Topic_respuesta = String(topic);
         ESP32_Topic_respuesta.replace("request", "response");
@@ -342,7 +360,8 @@ void MQTT_callback(char* topic, byte* payload, unsigned int len)
         Serial.println(JSON_respuesta_buffer);
         MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);
         MQTT_publish_topic("v1/devices/me/attributes",JSON_respuesta_buffer);
-      }*/
+      }
+
   }
 
 
@@ -359,7 +378,7 @@ void MQTT_callback(char* topic, byte* payload, unsigned int len)
 
 
 
-/*
+
   if(len>1)
   {
     for (int i = 1; i < len; i++) 
@@ -446,6 +465,6 @@ void MQTT_callback(char* topic, byte* payload, unsigned int len)
     snprintf (ESP32_Mensaje_MQTT,16,"CMD_DESCONOCIDO");
     MQTT_publish_topic(Topic_respuesta,ESP32_Mensaje_MQTT);
     break;
-  }*/
+  }
 }
 
