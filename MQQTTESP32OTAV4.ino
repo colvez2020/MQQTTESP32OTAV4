@@ -65,13 +65,13 @@ int      EE_User_main;
 
 void setup()
 {
-  SerialAT.begin(9600); //Inicia puerto Serial comicacion(Moden SIM800)
-  Serial.begin(9600);   //Inicia puerto Serial comicacion(PZEM, Programacion,DEBUG)
-                        //GPS puerto Serial es inicializado en GSP_Setup() 
-  RTCMen_ini_defecto();    //Inicializa la memoria a sus valores por defecto, solo una vez.
+  SerialAT.begin(9600);   //Inicia puerto Serial comicacion(Moden SIM800)
+  Serial.begin(9600);     //Inicia puerto Serial comicacion(PZEM, Programacion,DEBUG)
+                          //GPS puerto Serial es inicializado en GSP_Setup() 
+  RTCMen_ini_defecto();   //Inicializa la memoria a sus valores por defecto, solo una vez.
   
 
- /*
+ 
   if(!OTA_Activado())
   {
      Peripherals_ini(); //Activa todos los perifeciso (wifi,bluetooth,gsm,gps,lcd,bombillos led)
@@ -79,7 +79,7 @@ void setup()
     Task_ini();         //Inicializa la tarea GPS_task in core 0.
     lcd.clear(); 
   }
-  else*/
+  else
   {
     Serial.print("Modo OTA_detectado");
     if(Get_AS3_file()==1)
@@ -165,7 +165,6 @@ void loop()
       lcd.setCursor(0,3);
       lcd.printstr(msg_LCD);
       #endif
- 
       Planificador_tareas(PZEM_004T);
     }
     else

@@ -10,6 +10,20 @@
 
 #define MODO_WIFI						 7
 #define MODO_GSM						 8
+
+
+//Tipos de publicaciones
+#define pSET_SW_ESTADO       2
+#define pSET_KW_DOSI         3
+#define pSET_KW_PRE          4
+#define pSET_I_CORTE    		 5
+#define pFECHA_corte         6
+#define pFECHA_prepago       7
+#define pUSER_DATA           8
+#define pGPS_DATA            9
+#define pMEDIDA_DATA         10
+#define pGSM_DATA            11
+
 //#define MODO_INDETERMINADO	 9   //intento por los modos y no pudo conectar
 
 
@@ -23,7 +37,7 @@ bool MQTT_Maintenice_connect(void);
 char MQTT_publish(char* info);
 char MQTT_reconnect(void);
 void Setup_MQTT(char modo_conexcion);
-void MQTT_publish_topic(char MQTT_OUTBONE_TOPIC,char* info);
+void MQTT_publish_topic(char* MQTT_OUTBONE_TOPIC,char* info);
 void MQTT_callback(char* topic, byte* payload, unsigned int len); 
 
 #endif

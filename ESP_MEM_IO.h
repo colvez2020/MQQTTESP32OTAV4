@@ -7,7 +7,7 @@
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////Bandera INI EEPROM/////////////////////////////////////////////////////
-#define EE_INI_VAL 0X15
+#define EE_INI_VAL 0X40
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -46,16 +46,16 @@
 
 struct Parametros_CFG
 {
-  char SSID_char[20];
-  char SSID_PASS_char[20];
-  char ORCOM_char[20];
-  char CDTRAFO_ID_char[12];
-  char IMYCO_ID_char[6];
-  char CTOSUS_char[12];
-  char USERCAJA_char[30];
-  char IMEI_char[16];
-  char N_telefono[11];
-  char GSM_char[20];
+  char SSID_char[20];        //NOMBRE WIFI
+  char SSID_PASS_char[20];   //CLAVE WIFI
+  char ORCOM_char[20];       //OPERADOR RED
+  char CDTRAFO_ID_char[12];  //CENTRO DE DISTRIBUCION
+  char IMYCO_ID_char[6];     //NUMERO DE CAJA
+  char CTOSUS_char[12];      //NUMERO DE CONTRATO
+  char USERCAJA_char[30];    //NOMBRE DEL USUARIO
+  char IMEI_char[16];        //IMEI GSM
+  char N_telefono[11];       //NUMERO DE TELEFONO
+  char GSM_char[20];         //IMEI GPS
   char MEN_LOCK_ID;
 };
 //=20+20+20+12+6+12+30+16+11+20+1=168

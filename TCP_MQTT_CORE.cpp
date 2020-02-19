@@ -1,6 +1,7 @@
 #define TINY_GSM_MODEM_SIM800
 #include <TinyGsmClient.h> 
 #include <PubSubClient.h>
+#include <ArduinoJson.h>
 #include <WiFi.h>
 #include "ESP_MEM_IO.h"
 #include "MODEM_USER.h"
@@ -19,13 +20,11 @@ PubSubClient  	       ESP32_MQTT_client;
 static Parametros_CFG  ESP32_Parametros;
 
 int             SERVERPORT   = 1883;
-String          CLIENT_ID = "E";
-String          MQTT_OUTBONE_TOPIC = "";
-String          MQTT_OUT_DATA = "";
-String          MQTT_INBONE_TOPIC = "";
-const char      MQTT_SERVER[20]   = "tecno5.myddns.me"; 
-const char      USERNAME[10]= "ado";  
-const char      PASSWORD_MQTT[10] = "a";
+String          CLIENT_ID;
+String          MQTT_OUTBONE_TOPIC;
+String          PASSWORD_MQTT;
+const char      MQTT_SERVER[20]   = "tecno5.myddns.me";  
+int test=0;
 
 
 ////////////////////Manager//////////////////
@@ -184,20 +183,16 @@ bool MQTT_Maintenice_connect(void)
   return ESP32_MQTT_client.loop();  
 }
 
-void MQTT_publish_topic(char* MQTT_OUTBONE_TOPIC,char* info)
-{   
-  ESP32_MQTT_client.publish(MQTT_OUTBONE_TOPIC,info);
-}
+
+
 
 //linea modificada en casa
 char MQTT_reconnect(void) 
 {
-
-  MQTT_INBONE_TOPIC= "";
-  MQTT_INBONE_TOPIC+= String(ESP32_Parametros.IMYCO_ID_char);
-  MQTT_INBONE_TOPIC+=String("/CMD"); 
-
-  CLIENT_ID = String(ESP32_Parametros.IMYCO_ID_char);  //E-0001 identifica al medidor en el sistema MQTT
+  PASSWORD_MQTT="";
+  PASSWORD_MQTT=String("TOKEN_")+ String(ESP32_Parametros.IMYCO_ID_char); //TOKEN_XXXX
+  CLIENT_ID="";
+  CLIENT_ID=String("E_")+String(ESP32_Parametros.IMYCO_ID_char);  //EXXXX identifica al medidor en el sistema MQTT
   Serial.println("Attempting MQTT connection...");
   
   #ifdef TCPMQTT_DEBUG
@@ -208,14 +203,11 @@ char MQTT_reconnect(void)
   #endif
   
   if (ESP32_MQTT_client.connect(CLIENT_ID.c_str(),
-                                USERNAME,
-                                PASSWORD_MQTT)) 
+                                PASSWORD_MQTT.c_str(),
+                                NULL)) 
   {
-    
-    ESP32_MQTT_client.subscribe(MQTT_INBONE_TOPIC.c_str()); //recibe_info
-    MQTT_OUT_DATA=String("START_");
-    MQTT_OUT_DATA+=String(ESP32_Parametros.IMYCO_ID_char);
-    ESP32_MQTT_client.publish("GSM_CLIENT/INI",MQTT_OUT_DATA.c_str()); //Manda START_(MEDIDOR_NUM)     
+    ESP32_MQTT_client.subscribe("v1/devices/me/rpc/request/+"); //llegan las peticiones de botones, indicador y perillas
+    ESP32_MQTT_client.subscribe("v1/devices/me/attributes");    //llegan las peticiones de los cuadro de dialogo
   } 
   else 
   {
@@ -228,26 +220,146 @@ char MQTT_reconnect(void)
 }
 
 
+
+//publica en formato JSON, tomando el cuenta el tipo de informacion
+//SET_SW_ESTADO (RIN_RPC)        params true o false 
+//SET_KW_DOSI   (RIN_atributos)  params true o false
+//SET_KW_PRE    (RIN_atributos)  params true o false
+//SET_I_CORTE   (RIN_atributos)  params true o false
+//FECHA_corte   (RIN_atributos)  AÑO/MES/DIA/HORA 
+//FECHA_prepago (RIN_atributos)  AÑO/MES/DIA/HORA
+//USER_DATA     (_atributos)     MODO,NOMBRE DEL USUARIO,OPERADOR RED, CENTRO DE DISTRIBUCION, NUMERO DE CONTRATO
+//GPS_DATA      (TELE) latitud, longitud, ulatitud, ulongitud, failedChecksum, passedChecksum, satellites
+//MEDIDA_DATA   (TELE) rKWH, cKWH, sDKW/DIA, sPKW/MES
+//GSM_DATA      (_atributos)     Senal, IMEI GSM, NUMERO DE TELEFONO
+void MQTT_publish_topic(char* MQTT_OUTBONE_TOPIC,char* info)
+{ 
+  //ESP32_MQTT_client.publish(ESP32_Topic_respuesta.c_str(),ESP32_JSON_respuesta_char);
+  ESP32_MQTT_client.publish(MQTT_OUTBONE_TOPIC,info);
+
+}
+
+
 void MQTT_callback(char* topic, byte* payload, unsigned int len) 
 {
-  char      ESP32_Parametro_char[10]="";
-  char      ESP32_Mensaje_MQTT[100];
-  char      Topic_respuesta[] = "RPST_CAJA";
-  OTA_info  ESP32_Estado_OTA_MQTT;
+  char                    JSON_temp_buffer[201];
+  char                    JSON_respuesta_buffer[201];
+  String                  ESP32_Topic_respuesta;
+  StaticJsonDocument<200> DOC_JSON_payload;
+  StaticJsonDocument<200> DOC_JSON_Respuesta;
 
+  
 
+  strncpy (JSON_temp_buffer, (char*)payload, len);
+  JSON_temp_buffer[len] = '\0';
+  //JSON_respuesta_buffer
+ 
+  //OTA_info  ESP32_Estado_OTA_MQTT;
+  //boolean Param_boolean;
 
   //#ifdef TCPMQTT_DEBUG
   Serial.print("Message arrived [");
   Serial.print(topic);
-  Serial.print("]: ");
-  Serial.println(len);
-  for (int i = 0; i < len; i++) 
+  Serial.println("]: ");
+  Serial.println(JSON_temp_buffer);
+
+
+  //Desseñalizo (leeo la cadena para luego aceder a sus datos usando el metodo JSON)
+  //JSON_payload_char se borra en el proceso.
+  
+  auto error= deserializeJson(DOC_JSON_payload,(char*)JSON_temp_buffer);
+  if (error) 
   {
-    Serial.print((char)payload[i]);
+    Serial.print(F("Error al leer JSON_payload"));
+    Serial.println(error.c_str());
+    return;
   }
-  Serial.println();
- // #endif
+  else
+  {
+    // Check request method
+      String methodName = String((const char*)DOC_JSON_payload["method"]);
+      if (methodName.equals("SET_RELAY")) //Ordena cambio de relay
+      {
+        ESP32_Topic_respuesta = String(topic);
+        ESP32_Topic_respuesta.replace("request", "response");
+        DOC_JSON_Respuesta["method"]=DOC_JSON_payload["method"];
+        DOC_JSON_Respuesta["params"]=DOC_JSON_payload["params"];
+        serializeJson(DOC_JSON_Respuesta,
+                      JSON_respuesta_buffer, 
+                      200);
+        Serial.print("topic_respuesta=>");
+        Serial.println(ESP32_Topic_respuesta.c_str());
+        Serial.println(JSON_respuesta_buffer);
+        MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);
+      }
+      
+      if (methodName.equals("GET_RELAY")) //Ordena cambio de relay
+      {
+        ESP32_Topic_respuesta = String(topic);
+        ESP32_Topic_respuesta.replace("request", "response");
+       // DOC_JSON_Respuesta["method"]=DOC_JSON_payload["method"];
+        if(test==0)
+        {
+          DOC_JSON_Respuesta["RELEY_STD"]=false;
+          test=1;
+        }
+        else
+        {
+          DOC_JSON_Respuesta["RELEY_STD"]=true;
+          test=0;
+        }
+        serializeJson(DOC_JSON_Respuesta,
+                      JSON_respuesta_buffer, 
+                      200);
+        Serial.print("topic_respuesta=>");
+        Serial.println(ESP32_Topic_respuesta.c_str());
+        Serial.println(JSON_respuesta_buffer);
+        MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);
+        MQTT_publish_topic("v1/devices/me/attributes",JSON_respuesta_buffer);
+      }
+      /* if (methodName.equals("GET_LED_RELAY")) //Ordena cambio de relay
+      {
+        ESP32_Topic_respuesta = String(topic);
+        ESP32_Topic_respuesta.replace("request", "response");
+       // DOC_JSON_Respuesta["method"]=DOC_JSON_payload["method"];
+        if(test==0)
+        {
+          DOC_JSON_Respuesta["LED"]=false;
+          test=1;
+        }
+        else
+        {
+          DOC_JSON_Respuesta["LED"]=true;
+          test=0;
+        }
+
+        
+        serializeJson(DOC_JSON_Respuesta,
+                      JSON_respuesta_buffer, 
+                      200);
+        Serial.print("topic_respuesta=>");
+        Serial.println(ESP32_Topic_respuesta.c_str());
+        Serial.println(JSON_respuesta_buffer);
+        MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);
+        MQTT_publish_topic("v1/devices/me/attributes",JSON_respuesta_buffer);
+      }*/
+  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
   if(len>1)
   {
     for (int i = 1; i < len; i++) 
@@ -334,6 +446,6 @@ void MQTT_callback(char* topic, byte* payload, unsigned int len)
     snprintf (ESP32_Mensaje_MQTT,16,"CMD_DESCONOCIDO");
     MQTT_publish_topic(Topic_respuesta,ESP32_Mensaje_MQTT);
     break;
-  }
+  }*/
 }
 
