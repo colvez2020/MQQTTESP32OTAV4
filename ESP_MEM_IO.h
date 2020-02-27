@@ -1,16 +1,15 @@
 #ifndef ESP_MEM_IO_H
 #define ESP_MEM_IO_H
 
-//#include <MCP7940_ADO.h>
-
-#define MQQT_LED 13
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////Bandera INI EEPROM/////////////////////////////////////////////////////
-#define EE_INI_VAL 0X40
+#define EE_INI_VAL 0X33
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+
+#define SW_VER "1.0.1"
+#define MQQT_LED 13
 //////////////////////////////////////////////////////EEPROM I2C//////////////////////////////////////////////////////// 
 #define DATA_INDEX_OVERDRIVE 21        //Corro 21 puestos porque la direccion 20, tiene un tamaño tambien.
 #define DATA_ADD_OFFSET sizeof(int)*9  //Nueve tipos de datos
@@ -54,8 +53,9 @@ struct Parametros_CFG
   char CTOSUS_char[12];      //NUMERO DE CONTRATO
   char USERCAJA_char[30];    //NOMBRE DEL USUARIO
   char IMEI_char[16];        //IMEI GSM
-  char N_telefono[11];       //NUMERO DE TELEFONO
-  char GSM_char[20];         //IMEI GPS
+  char N_telefono[12];       //NUMERO DE TELEFONO
+  char GSM_char[21];         //IMEI GPS
+  char DIRECCION_char[30];   //DIRECCION USER
   char MEN_LOCK_ID;
 };
 //=20+20+20+12+6+12+30+16+11+20+1=168
@@ -110,7 +110,7 @@ struct GPS_info
     long   failedChecksum_data;
     long   passedChecksum_data;
     long   charsProcessed_data;
-    long   sentencesWithFix_data;
+    int    Fix_data;
 };
 
 struct OTA_info

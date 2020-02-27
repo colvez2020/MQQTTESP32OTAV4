@@ -63,6 +63,8 @@ All_flag       EE_flag_main;
 int      EE_User_main;
 #define SerialAT Serial2
 
+
+
 void setup()
 {
   SerialAT.begin(9600);   //Inicia puerto Serial comicacion(Moden SIM800)
@@ -74,7 +76,7 @@ void setup()
  
   if(!OTA_Activado())
   {
-     Peripherals_ini(); //Activa todos los perifeciso (wifi,bluetooth,gsm,gps,lcd,bombillos led)
+    Peripherals_ini(); //Activa todos los perifeciso (wifi,bluetooth,gsm,gps,lcd,bombillos led)
                         //y lee desde la EEPROM sus valores anteriores antes de apagar sistema. 
     Task_ini();         //Inicializa la tarea GPS_task in core 0.
     lcd.clear(); 
@@ -140,12 +142,15 @@ void loop()
   if(time_validar_seg(&time_muestreo_ref,5)==1 || fist_time_muestreo==1) 
   { 
     GPS_RUN();
+    MQTT_publish_GPS();
     if(fist_time_muestreo)
       delay(3000);
     fist_time_muestreo=0;
     PZEM_read_OK=PZEM_all_measurements(&PZEM_004T);  
     if(PZEM_read_OK)
     { 
+      PZEM_004T.energy_alCorte=Energia_Corte_Run(PZEM_004T.energy_user);
+
       #ifdef USE_LCD
       lcd.setCursor(0,1);
       lcd.print("                ");      
@@ -165,6 +170,8 @@ void loop()
       lcd.setCursor(0,3);
       lcd.printstr(msg_LCD);
       #endif
+      MQTT_publish_PZEM_DOSI_PRE(PZEM_004T);
+      
       Planificador_tareas(PZEM_004T);
     }
     else
@@ -298,9 +305,6 @@ void Planificador_tareas(PZEM_DataIO PZEM_004T_Datos)
 {
    read_flashI2C(TYPE_USER_INFO,     (char*)&EE_User_main);
 
-   Energia_Corte_Run(PZEM_004T.energy_user);
-
- 
    switch (EE_User_main) 
   {
     case EST_NORMAL:

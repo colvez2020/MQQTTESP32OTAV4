@@ -17,22 +17,33 @@
 #define EST_RELAY_CERRADO      1      
 #define EST_RELAY_ABIERTO      2     
 
+#include "ESP_MEM_IO.h"
 
+int  return_User_Config_Data(void);
+void return_User_Config_char_20(char* User_config_char);
+void return_User_relay_estado(boolean* Relay_estado);
 
-void Energia_Corte_Run(float Energia_leida);
+float Energia_Corte_Run(float Energia_leida);
+
+void Limitacion_Setup(float parametro);
+void Limitacion_Run(float Lectura_A);
+void return_Limitacion_char_5(char* Corriente_lim_configurada);
+
+void Docificacion_Setup(float parametro);
+void Docificacion_Run(float Energia_leida);
+void return_Dosifi_info(Dosifi_info* Configuracion_actual);
+void Estatus_KWLIMDOFI_50(char* Status_info);
+
+void Prepago_Setup(float parametro);
+void Prepago_Run(float Energia_leida);
+void return_Prepago_info(Prepago_info* Prepago_Configuracion_actual);
+void Estatus_prepago_50(char* Status_info);
+
 void Normaliza_Setup(void);
 void Suspension_Setup(void);
 void Reconect_Setup(void);
-void Limitacion_Setup_4(char *parametro);
-void Limitacion_Run(float Lectura_A);
-void Docificacion_Setup_4(char *parametro);
-void Docificacion_Run(float Energia_leida);
-void Estatus_KWLIMDOFI_50(char* Status_info);
-void Prepago_Setup_4(char* parametro);
-void Prepago_Run(float Energia_leida);
-void Estatus_prepago_50(char* Status_info);
-void Almacenar_Configuracion_Data(void);
+
 void Tareas_Setup(void);
-int  return_User_Config_Data(void);
+void Almacenar_Configuracion_Data(void);
 
 #endif

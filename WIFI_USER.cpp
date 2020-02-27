@@ -120,16 +120,7 @@ bool Setup_WiFI(void)
       delay(3000);
       ESP.restart();
   }
-  if(ID_WIFIMOdo_status==WIFI_ID_DEFAULT)
-  {
-    snprintf (ESP32_Para_CFG.IMYCO_ID_char,5,"3030");
-    snprintf (ESP32_Para_CFG.SSID_char,19,"Tecno5");
-    snprintf (ESP32_Para_CFG.SSID_PASS_char,19,"Cuatin05321");
-    ID_WIFIMOdo_status=WIFI_ID_SET;
-    store_flashESP32(Add_flash(TYPE_ID_CFG_MODO),Data_size(TYPE_ID_CFG_MODO),(char*)&ID_WIFIMOdo_status);
-    store_flashESP32(Add_flash(TYPE_PARAMETROS_CFG),Data_size(TYPE_PARAMETROS_CFG),(char*)&ESP32_Para_CFG); 
-  }
-
+  
   Serial.println("**************************");
   Serial.print("IMYCO_ID_char=>");
   Serial.println(ESP32_Para_CFG.IMYCO_ID_char);

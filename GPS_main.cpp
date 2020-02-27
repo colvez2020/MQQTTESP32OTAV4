@@ -1,8 +1,9 @@
 #include <TinyGPS++.h>
 #include <LiquidCrystal_I2C.h>
+#include "ESP_MEM_IO.h"
 #include "GPS_main.h"
 #include "RTC_user.h"
-#include "ESP_MEM_IO.h"
+
 
 HardwareSerial GPSserial(1);  
 TinyGPSPlus    gpsNEO6M;
@@ -54,14 +55,19 @@ bool GPS_Longitud_Latitud(double* Latitud, double* longitud, unsigned int* SAT )
   return false;
 }
 
+void return_GPS_info_data(GPS_info* Actual_GPS_DATA)
+{
+  *Actual_GPS_DATA=GPS_Status_data;
+}
+
 void GPS_Status_100(char* Status_info)
 {
-   snprintf (Status_info,100,"%f, %f, %f, %f, %i, %ld, %ld, %ld, %ld",GPS_Status_data.Latitud_leida,
+   snprintf (Status_info,100,"%f, %f, %f, %f, %i, %i, %ld, %ld, %ld",GPS_Status_data.Latitud_leida,
                                                                      GPS_Status_data.Longitud_leida,
                                                                      GPS_Status_data.Latitud_ultima_conocida,
                                                                      GPS_Status_data.Longitud_ultima_conocida,
                                                                      GPS_Status_data.Satelites_found,
-                                                                     GPS_Status_data.sentencesWithFix_data,
+                                                                     GPS_Status_data.Fix_data,
                                                                      GPS_Status_data.charsProcessed_data,
                                                                      GPS_Status_data.passedChecksum_data,
                                                                      GPS_Status_data.failedChecksum_data);
@@ -84,8 +90,9 @@ void GPS_RUN(void)
     GPS_Status_data.failedChecksum_data=gpsNEO6M.failedChecksum();
     GPS_Status_data.passedChecksum_data=gpsNEO6M.passedChecksum();
     GPS_Status_data.charsProcessed_data=gpsNEO6M.charsProcessed();
-    GPS_Status_data.sentencesWithFix_data=gpsNEO6M.sentencesWithFix();
+    GPS_Status_data.Fix_data=gpsNEO6M.location.isValid();
     GPS_Status_data.Satelites_found=gpsNEO6M.satellites.value();
+
 }
 
 

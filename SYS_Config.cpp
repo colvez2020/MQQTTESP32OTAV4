@@ -1,7 +1,7 @@
 #include <Arduino.h>
 #include <stdlib.h>  
-#include "SYS_Config.h"
 #include "ESP_MEM_IO.h"
+#include "SYS_Config.h"
 #include "Relaycmd.h"
 #include "Rtc_user.h"
 
@@ -21,69 +21,100 @@ int            User_Config_Data;
 char           User_relay_estado=EST_RELAY_CERRADO; //por defecto esta cerrado
 
 
+
+//////////////////////COSAS USER//////////////////////
 int return_User_Config_Data(void)
 {
   return User_Config_Data;
 }
 
-void Energia_Corte_Run(float Energia_leida)
+void return_User_Config_char_20(char* User_config_char)
 {
-   if(time_equal(-1,-1,1,0,0)) //Todos lo primeros de cada mes
-   {
-     read_flashI2C(TYPE_MEDIDOR_INFO,  (char*)&Medidor_Config_Data);
-     Medidor_Config_Data.KW_Inicio_Corte_ref=Energia_leida;
-     store_flashI2C(TYPE_MEDIDOR_INFO,  (char*)&Medidor_Config_Data);
-   }
-   
+  switch (User_Config_Data) 
+  {
+    case EST_NORMAL:
+      snprintf (User_config_char,19,"NORMALIZADO");
+    break;
+    case EST_LIMITADO:
+      snprintf (User_config_char,19,"LIMITADO");
+    break;
+    case EST_PENALIZADO:
+      snprintf (User_config_char,19,"PENALIZADO");
+    break;
+    case EST_DOFICACION:
+      snprintf (User_config_char,19,"CON_DOSIFICACION");
+    break;
+    case EST_PREPAGO:
+      snprintf (User_config_char,19,"CON_PREPAGO");
+    break;
+    case EST_SUS_NORMA:
+      snprintf (User_config_char,19,"EN_SUS_NORMAL");
+    break;
+    case EST_SUS_LIMI:
+      snprintf (User_config_char,19,"EN_SUS_LIMITADO");
+    break;
+    case EST_SUS_DOSI:
+      snprintf (User_config_char,19,"EN_SUS_DOSIFICADO");
+    break;
+    case EST_SUS_PREPA:
+      snprintf (User_config_char,19,"EN_SUS_PREPAGO");
+    break;
+  }
 }
 
-// IITT
-void Limitacion_Setup_4(char* parametro)
+void return_User_relay_estado(boolean * Relay_estado )
 {
-  char Corriente_lim_char[3]; //0-80 amperios
-  char Tiempo_char[3];        //0-99 minutos   //
-  int Corriente_lim_int=0;
-  int Tiempo_int=0;
+  switch (User_relay_estado) 
+  {
+    case EST_RELAY_ABIERTO:
+      *Relay_estado=false;
+    break;
+    case EST_RELAY_CERRADO:
+      *Relay_estado=true;
+    break;
+  }
+}
 
-  #ifdef SYSCONFIG_DEBUG
-  Serial.print("Para:");
-  Serial.println(parametro);
-  #endif
-  
-  for(int i=0;i<2;i++)
-   Corriente_lim_char[i]=parametro[i];
-  Corriente_lim_char[2]='\0';
-  
-  for(int i=0;i<2;i++)
-   Tiempo_char[i]=parametro[i+2];
-  Tiempo_char[2]='\0';
+///////////////////////////////////////////////////////
+///////////////////////////////////////////////////////
 
-  #ifdef SYSCONFIG_DEBUG
-  Serial.print("Corriente_lim_char:");
-  Serial.println(Corriente_lim_char);
-  Serial.print("Tiempo_char:");
-  Serial.println(Tiempo_char);
-  #endif
-  Corriente_lim_int=atoi(Corriente_lim_char);
-  Tiempo_int=atoi(Tiempo_char);
-  
-  #ifdef SYSCONFIG_DEBUG
-  Serial.print("cotienteL:");
-  Serial.println(Corriente_lim_int);
-  Serial.print("TiempoL:");
-  Serial.println(Tiempo_int);
-  #endif
+
+///////////////////CORTE ENERGIA//////////////////////
+
+float Energia_Corte_Run(float Energia_leida)
+{
+
+   if(time_equal(-1,-1,1,0,0)) //Todos lo primeros de cada mes
+   {
+      read_flashI2C(TYPE_MEDIDOR_INFO,  (char*)&Medidor_Config_Data);
+      Medidor_Config_Data.KW_Inicio_Corte_ref=Energia_leida;
+      store_flashI2C(TYPE_MEDIDOR_INFO,  (char*)&Medidor_Config_Data);
+   }
+   if(Medidor_Config_Data.KW_Inicio_Corte_ref!=0)
+   {
+      return (Energia_leida-Medidor_Config_Data.KW_Inicio_Corte_ref);
+   }
+    return -1.0;
+}
+///////////////////////////////////////////////////////
+///////////////////////////////////////////////////////
+
+
+///////////////////LIMITACION/////////////////////////
+void Limitacion_Setup(float parametro)
+{
+  //int Corriente_lim_int=0;
+  //int Tiempo_int=0;
+
+
   User_Config_Data=EST_LIMITADO;
-
-  Lim_Config_Data.A_limitacion=(float)Corriente_lim_int;
-  if(Tiempo_int!=0)
-    Lim_Config_Data.Tiempo_reconeccion_seg=(float)Tiempo_int*60;
-  else 
-    Lim_Config_Data.Tiempo_reconeccion_seg=300; //5 minutos por defecto
-
+  Lim_Config_Data.A_limitacion=parametro;
+  Lim_Config_Data.Tiempo_reconeccion_seg=300; //5 minutos por defecto
+  
   time_limitador_ref=0;  //Se reinicia el contrador.
   Relay_Action(1);       //Se reinicia el relay
   User_relay_estado=EST_RELAY_CERRADO;
+
   store_flashI2C(TYPE_USER_INFO,      (char*)&User_Config_Data);
   store_flashI2C(TYPE_LIMITADOR_INFO,(char*)&Lim_Config_Data);
 }
@@ -126,14 +157,23 @@ void Limitacion_Run(float Amp_leido)
 
 }
 
-void Docificacion_Setup_4(char* parametro)
+void return_Limitacion_char_5(char* Corriente_lim_configurada)
 {
-   read_flashI2C(TYPE_DOFI_INFO,     (char*)&Dosifi_Config_Data);
-   User_Config_Data=EST_DOFICACION;
-   Dosifi_Config_Data.KW_Cuota_Dia=(float)atoi(parametro);   
+   snprintf (Corriente_lim_configurada,4,"%2.1f",Lim_Config_Data.A_limitacion); 
+}
+///////////////////////////////////////////////////////
+///////////////////////////////////////////////////////
+
+
+///////////////////DOCIFICACION////////////////////////
+void Docificacion_Setup(float parametro)
+{
+  read_flashI2C(TYPE_DOFI_INFO,     (char*)&Dosifi_Config_Data);
+  User_Config_Data=EST_DOFICACION;
+  Dosifi_Config_Data.KW_Cuota_Dia=parametro;   
  
-   store_flashI2C(TYPE_USER_INFO,     (char*)&User_Config_Data);
-   store_flashI2C(TYPE_DOFI_INFO,     (char*)&Dosifi_Config_Data);
+  store_flashI2C(TYPE_USER_INFO,     (char*)&User_Config_Data);
+  store_flashI2C(TYPE_DOFI_INFO,     (char*)&Dosifi_Config_Data);
  
 }
 
@@ -160,6 +200,11 @@ void Docificacion_Run(float Energia_leida)
      
 }
 
+void return_Dosifi_info(Dosifi_info* Dofi_Configuracion_actual)
+{
+  *Dofi_Configuracion_actual=Dosifi_Config_Data;
+}
+
 //AA,MM,DD, CW, LA, DW, PW, ES, RR 
 //(AA,MM,DD) Fecha ultimo corte
 //(CW)       Energuia activa ultimo corte
@@ -177,15 +222,19 @@ void Estatus_KWLIMDOFI_50(char* Status_info)
                                                                           User_Config_Data,
                                                                           User_relay_estado);
 }
+///////////////////////////////////////////////////////
+///////////////////////////////////////////////////////
 
-void Prepago_Setup_4(char* parametro)
+
+//////////////////////PREPAGO//////////////////////////
+void Prepago_Setup(float parametro)
 {
   read_flashI2C(TYPE_PREPAGO_INFO,  (char*)&Prepago_Config_Data);
 
   Actualizar_KW_Pre_flag=1;
   User_Config_Data=EST_PREPAGO;
-  Datetochar(Prepago_Config_Data.Fecha_recarga);
-  Prepago_Config_Data.KM_Recarga=(float)atoi(parametro);
+  Datetochar(Prepago_Config_Data.Fecha_recarga); //Leo desde el RTC la fecha actual.
+  Prepago_Config_Data.KM_Recarga=parametro;
   Prepago_Config_Data.KM_Saldo_anterior=Prepago_Config_Data.KM_Saldo;
  
   store_flashI2C(TYPE_USER_INFO,     (char*)&User_Config_Data);
@@ -222,7 +271,10 @@ void Prepago_Run(float Energia_leida)
      
 }
 
-
+void return_Prepago_info(Prepago_info* Prepago_Configuracion_actual)
+{
+  *Prepago_Configuracion_actual=Prepago_Config_Data;
+}
 //AA,MM,DD,RW,SPW,DW
 //(AA,MM,DD) Fecha ultima recarga
 //(RW)       Cantidad ultima recarga
@@ -237,7 +289,11 @@ void Estatus_prepago_50(char* Status_info)
                                                                 Prepago_Config_Data.KM_Consumo_total,
                                                                 User_Config_Data);
 }
+///////////////////////////////////////////////////////
+///////////////////////////////////////////////////////
 
+
+////////////////////////SCR///////////////////////////
 void Suspension_Setup(void)
 {
   Relay_Action(0);
@@ -293,6 +349,25 @@ void Normaliza_Setup(void)
   store_flashI2C(TYPE_USER_INFO,      (char*)&User_Config_Data);
   store_flashI2C(TYPE_LIMITADOR_INFO,(char*)&Lim_Config_Data);  
 }
+///////////////////////////////////////////////////////
+///////////////////////////////////////////////////////
+
+
+
+////////////////////////UTIL///////////////////////////
+void Tareas_Setup(void)
+{
+  read_flashI2C(TYPE_LIMITADOR_INFO,(char*)&Lim_Config_Data);
+  read_flashI2C(TYPE_PREPAGO_INFO,  (char*)&Prepago_Config_Data);
+  read_flashI2C(TYPE_DOFI_INFO,     (char*)&Dosifi_Config_Data);
+  read_flashI2C(TYPE_USER_INFO,     (char*)&User_Config_Data); 
+  //#ifdef SYSCONFIG_DEBUG
+  Serial.print("Read_tipo_user:");
+  Serial.println(User_Config_Data);
+ // #endif
+}
+
+
 
 void Almacenar_Configuracion_Data(void)
 {
@@ -306,25 +381,3 @@ void Almacenar_Configuracion_Data(void)
   store_flashI2C(TYPE_USER_INFO,     (char*)&User_Config_Data);
 
 }
-
-void Tareas_Setup(void)
-{
-  read_flashI2C(TYPE_LIMITADOR_INFO,(char*)&Lim_Config_Data);
-  read_flashI2C(TYPE_PREPAGO_INFO,  (char*)&Prepago_Config_Data);
-  read_flashI2C(TYPE_DOFI_INFO,     (char*)&Dosifi_Config_Data);
-  read_flashI2C(TYPE_USER_INFO,     (char*)&User_Config_Data); 
-  //#ifdef SYSCONFIG_DEBUG
-  Serial.print("Read_tipo_user:");
-  Serial.println(User_Config_Data);
- // #endif
-}
-
-// COMANDO "N"     Ordena =>Normailzar (CERRAR relay y colocar Normal
-// COMANDO "S"     Ordena =>Suspender  (ABRIR  relay)
-// COMANDO "R"     Ordena =>Reconexion (CERRAR relay y volver al estado anterior) 
-// COMANDO "LXXTT" Ordena =>Limita a XX coriente TT tiempo minutos
-//                          (siempre mantener 2 carteres. Por ejemplo 
-//                           limitar 5 AMP  a 1 min seria L0501 )
-// COMANDO "DXXXX" Ordena =>Dosifica a XXXX (admite valores desde 0-9999Kw/h)
-// COMANDO "PXXXX" Ordena =>Recarga prepago a XXXX (admite valores desde 0-9999Kw/h)
-// COMANDO "CXX"   Ordena =>Dia de corte a XXXX (admite valores desde 0-9999Kw/h)

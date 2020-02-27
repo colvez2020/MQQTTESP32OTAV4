@@ -71,7 +71,7 @@ void  ini_I2C_Data(char            flag_var_randon)
   EEROM_GPS.failedChecksum_data=0;
   EEROM_GPS.passedChecksum_data=0;
   EEROM_GPS.charsProcessed_data=0;
-  EEROM_GPS.sentencesWithFix_data=0;
+  EEROM_GPS.Fix_data=0;
 
   //Los demas valores no importan, simpre se reinician en cada OTA
   EEROM_Estado_OTA.OTA_Activado=0;  
@@ -113,12 +113,11 @@ void  ini_I2C_Data(char            flag_var_randon)
   Serial.println(END_ADD);
   //#endif  
   
-
-
-
-  //EEPROMESP32
-  //ESP_WIFI_CFG_MODO=WIFI_ID_SCAN;  //Activar para usar opcion configurar WIFI
-  ESP_WIFI_CFG_MODO=WIFI_ID_DEFAULT;  //Activar para usar valores por defecto
+  //Activar para usar opcion configurar WIFI y parametros por WEB
+  //ESP_WIFI_CFG_MODO=WIFI_ID_SCAN;  
+  
+  //Activar para usar valores por defecto (De todos los parametros)
+  ESP_WIFI_CFG_MODO=WIFI_ID_DEFAULT;  
 
   //Iniciacilizacion men parametros
   for(i=0;i<20;i++)  
@@ -154,11 +153,48 @@ void  ini_I2C_Data(char            flag_var_randon)
 
   EEROMESP32_Para_CFG.MEN_LOCK_ID=0xFF;
 
+  if(ESP_WIFI_CFG_MODO==WIFI_ID_DEFAULT)
+  {
+     //BYTES 157
+    Serial.println("Set_atributos x defecto");
+    snprintf (EEROMESP32_Para_CFG.IMYCO_ID_char,5,"0241");
+    snprintf (EEROMESP32_Para_CFG.SSID_char,19,"Tecno5");
+    snprintf (EEROMESP32_Para_CFG.SSID_PASS_char,19,"Cuatin05321");
+    snprintf (EEROMESP32_Para_CFG.ORCOM_char,19,"EMCALI");
+    snprintf (EEROMESP32_Para_CFG.CDTRAFO_ID_char,11,"TRAFO12343");
+    snprintf (EEROMESP32_Para_CFG.CTOSUS_char,11,"#3433246");
+    snprintf (EEROMESP32_Para_CFG.USERCAJA_char,29,"NICOLAS TESLA");
+    snprintf (EEROMESP32_Para_CFG.IMEI_char,15,"#1232123451776");
+    snprintf (EEROMESP32_Para_CFG.N_telefono,11,"#3023144320");
+    snprintf (EEROMESP32_Para_CFG.GSM_char,20,"#1234567890876543212");
+    snprintf (EEROMESP32_Para_CFG.DIRECCION_char,29,"Cl 53 # 12-39");
+    
+    Serial.print("SSID_char=>");
+    Serial.println(EEROMESP32_Para_CFG.SSID_char);
+    Serial.print("SSID_PASS_char=>");
+    Serial.println(EEROMESP32_Para_CFG.SSID_PASS_char);
+    Serial.print("ORCOM_char=>");
+    Serial.println(EEROMESP32_Para_CFG.ORCOM_char);
+    Serial.print("CDTRAFO_ID_char=>");
+    Serial.println(EEROMESP32_Para_CFG.CDTRAFO_ID_char);
+    Serial.print("IMYCO_ID_char=>");
+    Serial.println(EEROMESP32_Para_CFG.IMYCO_ID_char);
+    Serial.print("CTOSUS_char=>");
+    Serial.println(EEROMESP32_Para_CFG.CTOSUS_char);
+    Serial.print("USERCAJA_char=>");
+    Serial.println(EEROMESP32_Para_CFG.USERCAJA_char);
+    Serial.print("IMEI_char=>");
+    Serial.println(EEROMESP32_Para_CFG.IMEI_char);
+    Serial.print("N_telefono=>");
+    Serial.println(EEROMESP32_Para_CFG.N_telefono);
+    Serial.print("GSM_char=>");
+    Serial.println(EEROMESP32_Para_CFG.GSM_char); 
+    ESP_WIFI_CFG_MODO=WIFI_ID_SET;
+  }
   //grabo en la EEPROM del ESP 32
   store_flashESP32(Add_flash(TYPE_ID_CFG_MODO),Data_size(TYPE_ID_CFG_MODO),(char*)&ESP_WIFI_CFG_MODO);
   store_flashESP32(Add_flash(TYPE_PARAMETROS_CFG),Data_size(TYPE_PARAMETROS_CFG),(char*)&EEROMESP32_Para_CFG);  
   
- 
   END_ADD=TAM_ID_CFG_MODO+TAM_PARAMETROS_CFG;
   Serial.print("512=>END_ADD_EErom_ESP32=>");
   Serial.println(END_ADD);

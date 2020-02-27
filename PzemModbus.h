@@ -1,12 +1,15 @@
 #ifndef PZEMMODBUS_H
 #define PZEMMODBUS_H
 
+
+//no se guarda en memoria EEPROM
 struct PZEM_DataIO{
     float voltage;
     float current;
     float power;
     float energy;
     float energy_user;
+    float energy_alCorte;
     float frequeny;
     float pf;
     uint16_t alarms;
