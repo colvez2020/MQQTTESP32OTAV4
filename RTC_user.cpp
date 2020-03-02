@@ -51,7 +51,7 @@ void printDate(void)
   Serial.print('/');
   Serial.print(now_DATE.month(), DEC);
   Serial.print('/');
-  Serial.print(now_DATE.day(), DEC);
+  Serial.println(now_DATE.day(), DEC);
   //Serial.print(" (");
   //Serial.print(daysOfTheWeek[now_DATE.dayOfTheWeek()]);
  // Serial.print(") ");

@@ -9,5 +9,6 @@
 
 bool Setup_WiFI(void);
 
+void Get_MAC_19(char * MAC);
 
 #endif

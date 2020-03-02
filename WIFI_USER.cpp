@@ -34,6 +34,7 @@ bool Setup_WiFI(void)
 {
 
   String ID_CONFIG_AP;
+  
 
   read_flashESP32(Add_flash(TYPE_ID_CFG_MODO),
                   Data_size(TYPE_ID_CFG_MODO),
@@ -134,7 +135,9 @@ bool Setup_WiFI(void)
   Serial.println(ESP32_Para_CFG.SSID_char);
   Serial.print("Pass ");
   Serial.println(ESP32_Para_CFG.SSID_PASS_char);
+
   WiFi.begin(ESP32_Para_CFG.SSID_char, ESP32_Para_CFG.SSID_PASS_char);
+
   while (WiFi.status() != WL_CONNECTED) 
   {
     delay(1000);
@@ -155,5 +158,52 @@ bool Setup_WiFI(void)
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
   #endif 
+
   return true;
+}
+
+void Get_MAC_19(char * MAC)
+{
+  byte mac_byte[6];
+  char mac_numero[3];
+  int  mac_int_HEX[6];
+  String result;
+
+ 
+
+  WiFi.macAddress(mac_byte);
+  
+  /*snprintf (mac_numero,2,"%s",&mac[5]);
+  mac_int_HEX[5]=atoi(mac_numero);
+  snprintf (mac_numero,2,"%s",&mac[4]);
+  mac_int_HEX[4]=atoi(mac_numero);
+  snprintf (mac_numero,2,"%s",&mac[3]);
+  mac_int_HEX[3]=atoi(mac_numero);
+  snprintf (mac_numero,2,"%s",&mac[2]);
+  mac_int_HEX[2]=atoi(mac_numero);
+  snprintf (mac_numero,2,"%s",&mac[1]);
+  mac_int_HEX[1]=atoi(mac_numero);
+  snprintf (mac_numero,2,"%s",&mac[0]);
+  mac_int_HEX[0]=atoi(mac_numero);
+ 
+  Serial.print("MAC: ");
+  Serial.print(mac[5],HEX);
+  Serial.print(":");
+  Serial.print(mac[4],HEX);
+  Serial.print(":");
+  Serial.print(mac[3],HEX);
+  Serial.print(":");
+  Serial.print(mac[2],HEX);
+  Serial.print(":");
+  Serial.print(mac[1],HEX);
+  Serial.print(":");
+  Serial.println(mac[0],HEX);*/
+
+  snprintf (MAC,18,"%X:%X:%X:%X:%X:%X",mac_byte[5],
+                                       mac_byte[4],
+                                       mac_byte[3],
+                                       mac_byte[2],
+                                       mac_byte[1],
+                                       mac_byte[0]);
+  Serial.print(MAC);
 }

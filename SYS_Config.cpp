@@ -4,6 +4,7 @@
 #include "SYS_Config.h"
 #include "Relaycmd.h"
 #include "Rtc_user.h"
+#include "TCP_MQTT_CORE.h"
 
 //#define SYSCONFIG_DEBUG
 
@@ -108,7 +109,8 @@ void Limitacion_Setup(float parametro)
 
 
   User_Config_Data=EST_LIMITADO;
-  Lim_Config_Data.A_limitacion=parametro;
+  if(parametro>0.0)
+    Lim_Config_Data.A_limitacion=parametro;
   Lim_Config_Data.Tiempo_reconeccion_seg=300; //5 minutos por defecto
   
   time_limitador_ref=0;  //Se reinicia el contrador.
@@ -168,19 +170,29 @@ void return_Limitacion_char_5(char* Corriente_lim_configurada)
 ///////////////////DOCIFICACION////////////////////////
 void Docificacion_Setup(float parametro)
 {
-  read_flashI2C(TYPE_DOFI_INFO,     (char*)&Dosifi_Config_Data);
-  User_Config_Data=EST_DOFICACION;
-  Dosifi_Config_Data.KW_Cuota_Dia=parametro;   
+  //read_flashI2C(TYPE_DOFI_INFO,     (char*)&Dosifi_Config_Data);
+  if(parametro>0.0)
+  {
+    User_Config_Data=EST_DOFICACION;
+    Dosifi_Config_Data.KW_Cuota_Dia=parametro;
+  }
+  else
+  {
+    Dosifi_Config_Data.KW_Cuota_Dia=0;
+  }
  
+  Relay_Action(1); 
+  User_relay_estado=EST_RELAY_CERRADO;
+  
   store_flashI2C(TYPE_USER_INFO,     (char*)&User_Config_Data);
   store_flashI2C(TYPE_DOFI_INFO,     (char*)&Dosifi_Config_Data);
- 
 }
 
 void Docificacion_Run(float Energia_leida)
 {
   read_flashI2C(TYPE_DOFI_INFO,     (char*)&Dosifi_Config_Data);
-  if(time_equal(-1,-1,-1,19,-1)) //a las 8 pm todos los dias
+  //a las 8 pm todos los dias se reinicia
+  if(time_equal(-1,-1,-1,19,-1))
   {
     Dosifi_Config_Data.KW_Dofi_Inicio_ref=Energia_leida;
     Relay_Action(1);
@@ -229,51 +241,76 @@ void Estatus_KWLIMDOFI_50(char* Status_info)
 //////////////////////PREPAGO//////////////////////////
 void Prepago_Setup(float parametro)
 {
-  read_flashI2C(TYPE_PREPAGO_INFO,  (char*)&Prepago_Config_Data);
+  //read_flashI2C(TYPE_PREPAGO_INFO,  (char*)&Prepago_Config_Data);
 
   Actualizar_KW_Pre_flag=1;
   User_Config_Data=EST_PREPAGO;
   Datetochar(Prepago_Config_Data.Fecha_recarga); //Leo desde el RTC la fecha actual.
-  Prepago_Config_Data.KM_Recarga=parametro;
-  Prepago_Config_Data.KM_Saldo_anterior=Prepago_Config_Data.KM_Saldo;
- 
+  if(parametro>0.0)
+  {
+    Prepago_Config_Data.KM_Recarga=parametro;
+    Prepago_Config_Data.KM_Saldo_anterior=Prepago_Config_Data.KM_Saldo;    
+  }
+  else
+  {
+    Serial.print("reset_prepago=>");
+    Prepago_Config_Data.KM_Recarga=0.0;
+    Prepago_Config_Data.KM_Saldo_anterior=0.0;
+    Prepago_Config_Data.KM_Saldo=0.0;
+    Serial.println(Prepago_Config_Data.KM_Saldo_anterior);
+  }
+
   store_flashI2C(TYPE_USER_INFO,     (char*)&User_Config_Data);
   store_flashI2C(TYPE_PREPAGO_INFO,  (char*)&Prepago_Config_Data);
 }
 
 void Prepago_Run(float Energia_leida)
 {
+  double Delta_consumo;
+  double Carga_actual;
+
   read_flashI2C(TYPE_PREPAGO_INFO,  (char*)&Prepago_Config_Data);
 
+  Serial.println("Modo_prepago");
   if(Actualizar_KW_Pre_flag) 
   {
+    Serial.print("inicio_prepago en ");
+    Serial.println(Energia_leida);
     Prepago_Config_Data.KW_Pre_Inicio_ref=Energia_leida;
     Actualizar_KW_Pre_flag=0;
     store_flashI2C(TYPE_PREPAGO_INFO,  (char*)&Prepago_Config_Data);
   }
+  Delta_consumo=Energia_leida-Prepago_Config_Data.KW_Pre_Inicio_ref;
+  Carga_actual=Prepago_Config_Data.KM_Saldo_anterior+Prepago_Config_Data.KM_Recarga;
    //Consumo_total=Consumo_total+Delta(Consumo)                                   
-   Prepago_Config_Data.KM_Consumo_total=Prepago_Config_Data.KM_Consumo_total+
-                                        (Energia_leida-Prepago_Config_Data.KW_Pre_Inicio_ref);
+  Prepago_Config_Data.KM_Consumo_total=Prepago_Config_Data.KM_Consumo_total+Delta_consumo;
    //Saldo=Saldo(anterior)+Recarga -Delta(Consumo)
-   Prepago_Config_Data.KM_Saldo=(Prepago_Config_Data.KM_Saldo_anterior+Prepago_Config_Data.KM_Recarga)-
-                                (Energia_leida-Prepago_Config_Data.KW_Pre_Inicio_ref);
-   if(Prepago_Config_Data.KM_Saldo<=0.0)
-   {
-      Relay_Action(0); 
-      User_relay_estado=EST_RELAY_ABIERTO;
-   }
-     
-   else
-   {
-      Relay_Action(1); 
-      User_relay_estado=EST_RELAY_CERRADO;
-   }
-     
+
+  Prepago_Config_Data.KM_Saldo=Carga_actual-Delta_consumo;
+                                
+  Serial.print("Carga_prepago ");
+  Serial.println(Carga_actual);
+  Serial.print("delta consumo prepago ");
+  Serial.println(Delta_consumo);
+  if(Prepago_Config_Data.KM_Saldo<=0.0)
+  {
+    Prepago_Config_Data.KM_Saldo=0;
+    Relay_Action(0); 
+    User_relay_estado=EST_RELAY_ABIERTO;
+  }
+  else
+  {
+    Relay_Action(1); 
+    User_relay_estado=EST_RELAY_CERRADO;
+  }
+  MQTT_publish_led();
 }
 
 void return_Prepago_info(Prepago_info* Prepago_Configuracion_actual)
 {
   *Prepago_Configuracion_actual=Prepago_Config_Data;
+  //Serial.print("prepago_info=>");
+
 }
 //AA,MM,DD,RW,SPW,DW
 //(AA,MM,DD) Fecha ultima recarga

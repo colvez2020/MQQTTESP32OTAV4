@@ -142,7 +142,7 @@ void loop()
   if(time_validar_seg(&time_muestreo_ref,5)==1 || fist_time_muestreo==1) 
   { 
     GPS_RUN();
-    MQTT_publish_GPS();
+    
     if(fist_time_muestreo)
       delay(3000);
     fist_time_muestreo=0;
@@ -170,8 +170,12 @@ void loop()
       lcd.setCursor(0,3);
       lcd.printstr(msg_LCD);
       #endif
-      MQTT_publish_PZEM_DOSI_PRE(PZEM_004T);
-      
+      if(MQTT_StatusConect)
+      {
+        MQTT_publish_PZEM_DOSI_PRE(PZEM_004T);
+        MQTT_publish_GPS();
+      }
+
       Planificador_tareas(PZEM_004T);
     }
     else
@@ -206,6 +210,7 @@ void loop()
 
 void RTCMen_ini_defecto(void)
 {
+  char fecha_inicial[17];
   LED_Setup();             //No tiene datos de inicializacion en EEPROM
   Setup_ESP_flash();
   read_flashI2C(TYPE_FLAGS,(char*)&EE_flag_main);
@@ -220,12 +225,18 @@ void RTCMen_ini_defecto(void)
      Serial.println("!!!inicializando EEPROM Y HORA!!!");
      ini_I2C_Data(EE_INI_VAL);
      Setup_RTC();             //No tiene datos de inicializacion en EEPROM
+     Datetochar(fecha_inicial);
+     Serial.print("Fecha_fabrica=>");
+     Serial.println(fecha_inicial);
+     store_flashESP32(Add_flash(TYPE_FECHA_FAB),16,(char*)&fecha_inicial);
   }
   Read_index_reinicio(&Reset_ini_counter);
   Serial.print("Contador Reinicios=>");
   Serial.println(Reset_ini_counter);
   Reset_ini_counter++;
   Store_index_reinicio(Reset_ini_counter);
+  Serial.print("Hora del sistema=>");
+  printDate();
 
 }
 

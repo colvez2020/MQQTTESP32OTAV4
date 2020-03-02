@@ -10,6 +10,7 @@
 #include "GPS_main.h"
 #include "PzemModbus.h"
 #include "TCP_MQTT_CORE.h"
+#include "WIFI_USER.h"
 
 #define TCPMQTT_DEBUG
 
@@ -188,7 +189,7 @@ void MQTT_publish_Atributes_config(void)
 {
   StaticJsonDocument<200> DOC_JSON_atributos;
   char DOC_JSON_atributos_buffer[201];
-  char params_char[20];
+  char params_char[25];
   
   read_flashESP32(Add_flash(TYPE_PARAMETROS_CFG),
                   Data_size(TYPE_PARAMETROS_CFG),
@@ -251,14 +252,45 @@ void MQTT_publish_Atributes_config(void)
   DOC_JSON_atributos.clear();
   DOC_JSON_atributos["PRE_RECAR"]="No aplica";         //Valor ultima recarga -1. Desactivado
   DOC_JSON_atributos["DOSI_DIAKW"]="No aplica";        //Valor de dosificacion diaria -1. Desactivado
+
+  Serial.println(DOC_JSON_atributos_buffer);
   serializeJson(DOC_JSON_atributos,
                 DOC_JSON_atributos_buffer, 
                 200);
   Serial.println(DOC_JSON_atributos_buffer);
   MQTT_publish_topic((char*)"v1/devices/me/attributes",DOC_JSON_atributos_buffer);
+
+  DOC_JSON_atributos.clear();
+  DOC_JSON_atributos["DIV"]="IMYCO";
+  DOC_JSON_atributos["FRA"]="TECNO5 S.A.S";
+  read_flashESP32(Add_flash(TYPE_FECHA_FAB),16,(char*)&params_char);
+  DOC_JSON_atributos["FECHA_F"]=params_char;
+  snprintf (params_char,19,"BT%s",ESP32_Parametros.IMYCO_ID_char);
+  DOC_JSON_atributos["BLUE_ID"]=params_char;  //5  +9
+  Get_MAC_19(params_char);
+  DOC_JSON_atributos["MAC"]=params_char;
+
+  Serial.println(DOC_JSON_atributos_buffer);
+  serializeJson(DOC_JSON_atributos,
+                DOC_JSON_atributos_buffer, 
+                200);
+  Serial.println(DOC_JSON_atributos_buffer);
+  MQTT_publish_topic((char*)"v1/devices/me/attributes",DOC_JSON_atributos_buffer);
+  
 }
 
 //linea modificada en casa
+// int - the client state, which can take the following values (constants defined in PubSubClient.h):
+// -4 : MQTT_CONNECTION_TIMEOUT - the server didn't respond within the keepalive time
+// -3 : MQTT_CONNECTION_LOST - the network connection was broken
+// -2 : MQTT_CONNECT_FAILED - the network connection failed
+// -1 : MQTT_DISCONNECTED - the client is disconnected cleanly
+//  0 : MQTT_CONNECTED - the client is connected
+//  1 : MQTT_CONNECT_BAD_PROTOCOL - the server doesn't support the requested version of MQTT
+//  2 : MQTT_CONNECT_BAD_CLIENT_ID - the server rejected the client identifier
+//  3 : MQTT_CONNECT_UNAVAILABLE - the server was unable to accept the connection
+//  4 : MQTT_CONNECT_BAD_CREDENTIALS - the username/password were rejected
+//  5 : MQTT_CONNECT_UNAUTHORIZED - the client was not authorized to connect
 char MQTT_reconnect(void) 
 {
   PASSWORD_MQTT="";
@@ -272,10 +304,12 @@ char MQTT_reconnect(void)
   Serial.println(MQTT_SERVER);
   Serial.print("Cliente_ID: ");
   Serial.println(CLIENT_ID.c_str());
+  Serial.print("Pass: ");
+  Serial.println(PASSWORD_MQTT.c_str());
   #endif
-  
+  //boolean connect (clientID, username, password)
   if (ESP32_MQTT_client.connect(CLIENT_ID.c_str(),
-                                PASSWORD_MQTT.c_str(),
+                                "TOKEN_0241",
                                 NULL)) 
   {
     ESP32_MQTT_client.subscribe("v1/devices/me/rpc/request/+"); //llegan las peticiones de botones, indicador y perillas
@@ -312,6 +346,7 @@ void MQTT_publish_topic(char* MQTT_OUTBONE_TOPIC,char* info)
   ESP32_MQTT_client.publish(MQTT_OUTBONE_TOPIC,info);
 
 }
+//TELEMETRIA
 
 void MQTT_publish_PZEM_DOSI_PRE(PZEM_DataIO PZEM_actual_data)
 {
@@ -322,24 +357,26 @@ void MQTT_publish_PZEM_DOSI_PRE(PZEM_DataIO PZEM_actual_data)
 
   return_Dosifi_info(&Dosi_Configuracion_actual);
   return_Prepago_info(&Prepago_Configuracion_actual);
-  KM_float = KM_float + (random(0,100)/10.4);
+  //KM_float = KM_float + (random(0,100)/10.4);
 
-  DOC_PZEM_DOSI_PRE["VOL"]=PZEM_actual_data.voltage;               //Voltaje
-  DOC_PZEM_DOSI_PRE["RKWH"]=PZEM_actual_data.energy;               //Valor registro puro
-  DOC_PZEM_DOSI_PRE["CKWH"]=KM_float;  //OK                         //Consumo usuario
-  KM_float = KM_float + (random(0,100)/10.4);
-  DOC_PZEM_DOSI_PRE["PRE_SALDO"]=KM_float; //Prepago_Configuracion_actual.KM_Saldo;           //Saldo prepago disponible
-  DOC_PZEM_DOSI_PRE["PRE_TOTALKW"]=Prepago_Configuracion_actual.KM_Consumo_total; //Consumo total en modo prepago
+  DOC_PZEM_DOSI_PRE["VOL"]=PZEM_actual_data.voltage;                                //Voltaje
+  DOC_PZEM_DOSI_PRE["RKWH"]=PZEM_actual_data.energy;                                //Valor registro puro
+  DOC_PZEM_DOSI_PRE["CKWH"]=PZEM_actual_data.energy_user;  //OK                                         //Consumo usuario
+  //KM_float = KM_float + (random(0,100)/10.4);
+  DOC_PZEM_DOSI_PRE["PRE_SALDO"]=Prepago_Configuracion_actual.KM_Saldo; //Saldo prepago disponible
+  Serial.print("SALDO=");
+  Serial.println(Prepago_Configuracion_actual.KM_Saldo);
+  DOC_PZEM_DOSI_PRE["PRE_TOTALKW"]=Prepago_Configuracion_actual.KM_Consumo_total;   //Consumo total en modo prepago
   if(PZEM_actual_data.energy_alCorte==-1)
   {
     DOC_PZEM_DOSI_PRE["CORTE_KWH"]="No aplica";
   }
   else
   {
-   DOC_PZEM_DOSI_PRE["CORTE_KWH"]=PZEM_actual_data.energy_alCorte;  //Consumo desde el corte   
+   DOC_PZEM_DOSI_PRE["CORTE_KWH"]=PZEM_actual_data.energy_alCorte;                  //Consumo desde el corte   
   }
-  DOC_PZEM_DOSI_PRE["I"]=PZEM_actual_data.current;    //OK         //Corriente actual 
-  DOC_PZEM_DOSI_PRE["DOSI_DISPO"]=Dosi_Configuracion_actual.KM_Disponible;        //Salta actual disponible
+  DOC_PZEM_DOSI_PRE["I"]=PZEM_actual_data.current;                                  //Corriente actual 
+  DOC_PZEM_DOSI_PRE["DOSI_DISPO"]=Dosi_Configuracion_actual.KM_Disponible;          //Saldo actual disponible
   serializeJson(DOC_PZEM_DOSI_PRE,
                 JSON_PZEM_DOSI_PRE_buffer, 
                 200);
@@ -375,12 +412,27 @@ void MQTT_publish_GPS(void)
   MQTT_publish_topic((char*)"v1/devices/me/telemetry",JSON_GPS_buffer);
 }
 
+void MQTT_publish_led(void)
+{
+  boolean                 Parametro_bool; 
+  StaticJsonDocument<200> DOC_JSON_led;
+  char                    JSON_led_buffer[201];
+
+  return_User_relay_estado(&Parametro_bool);
+  DOC_JSON_led["RELAY"]=Parametro_bool; 
+  serializeJson(DOC_JSON_led,
+              JSON_led_buffer, 
+              200);
+  MQTT_publish_topic((char*)"v1/devices/me/attributes",JSON_led_buffer);
+}
+
 void MQTT_callback(char* topic, byte* payload, unsigned int len) 
 {
   char                    JSON_temp_buffer[201];
   char                    JSON_respuesta_buffer[201];
   String                  ESP32_Topic_respuesta;
   boolean                 Parametro_bool;
+  boolean                 Parametro_Dash=false;
   StaticJsonDocument<200> DOC_JSON_payload;
   StaticJsonDocument<200> DOC_JSON_Respuesta;
   //JsonObject root = DOC_JSON_payload.to<JsonObject>()
@@ -420,56 +472,58 @@ void MQTT_callback(char* topic, byte* payload, unsigned int len)
     Limitacion_DASH =  DOC_JSON_payload["VALOR_LIMITACION"] ;
     if(Recarga_pregago_DASH!=0.0)
     {
-      if(Recarga_pregago_DASH>0.0)
-      {
-        Prepago_Setup(Recarga_pregago_DASH);
-      }
-      else
+      Parametro_Dash=true;
+      Prepago_Setup(Recarga_pregago_DASH);
+      if(Recarga_pregago_DASH<0.0)
       {
         DOC_JSON_payload["PRE_RECAR"]="No aplica";
+        Normaliza_Setup();
       }
-      serializeJson(DOC_JSON_payload,
-                    JSON_respuesta_buffer, 
-                    200);
-     MQTT_publish_topic((char*)"v1/devices/me/attributes",JSON_respuesta_buffer); 
     }
     if(Dosificacion_DASH!=0.0)
     {
-      if(Dosificacion_DASH>0.0)
-      {
-        Docificacion_Setup(Dosificacion_DASH);       
-      }
-      else
+      Parametro_Dash=true;
+      Docificacion_Setup(Dosificacion_DASH);
+      if(Dosificacion_DASH<0.0)
       {
         DOC_JSON_payload["DOSI_DIAKW"]="No aplica";
+        Normaliza_Setup();
       }
-      serializeJson(DOC_JSON_Respuesta,
-                    JSON_respuesta_buffer, 
-                    200);              
-      MQTT_publish_topic((char*)"v1/devices/me/attributes",JSON_respuesta_buffer);
     }
     if(Limitacion_DASH!=0.0)
     {
-      if(Dosificacion_DASH>0.0)
-      {
-      Limitacion_Setup(Limitacion_DASH);        
-      }
-      else
+      Parametro_Dash=true;
+      Limitacion_Setup(Limitacion_DASH);
+      if(Dosificacion_DASH<0.0)
       {
         DOC_JSON_payload["VALOR_LIMITACION"]="No aplica";
+        Normaliza_Setup();
       }
+    }
+
+    if(Parametro_Dash)
+    {
+      return_User_Config_char_20(params_char);
+      DOC_JSON_payload["MODO"]=params_char;
+      return_User_relay_estado(&Parametro_bool);
+      DOC_JSON_Respuesta["RELAY"]=Parametro_bool; 
       serializeJson(DOC_JSON_Respuesta,
                     JSON_respuesta_buffer, 
                     200);
       MQTT_publish_topic((char*)"v1/devices/me/attributes",JSON_respuesta_buffer);
     }
+
     // Check request method
     String methodName = String((const char*)DOC_JSON_payload["method"]);
-    if (methodName.equals("SET_SUSPENDER")) //SUSPENDO USUARIO
+    if (methodName.equals("SET_SUSPENDER")) //SUSPENDER USUARIO
     {
       ESP32_Topic_respuesta = String(topic);
       ESP32_Topic_respuesta.replace("request", "response");
       DOC_JSON_Respuesta["SUSPENDER_MODO"]=false;
+      /*return_User_relay_estado(&Parametro_bool);
+      DOC_JSON_Respuesta["RELAY"]=Parametro_bool; 
+      return_User_Config_char_20(params_char);
+      DOC_JSON_Respuesta["MODO"]=params_char;  */ 
       serializeJson(DOC_JSON_Respuesta,
                     JSON_respuesta_buffer, 
                     200);
@@ -495,7 +549,7 @@ void MQTT_callback(char* topic, byte* payload, unsigned int len)
       MQTT_publish_topic((char*)"v1/devices/me/attributes",JSON_respuesta_buffer);
     }
     
-    if (methodName.equals("SET_RECONECTAR")) //RECONECTA USUARIO
+    if (methodName.equals("SET_RECONECTAR")) //RECONECTAR USUARIO
     {
       ESP32_Topic_respuesta = String(topic);
       ESP32_Topic_respuesta.replace("request", "response");
@@ -524,7 +578,7 @@ void MQTT_callback(char* topic, byte* payload, unsigned int len)
       //MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);
       MQTT_publish_topic((char*)"v1/devices/me/attributes",JSON_respuesta_buffer);
     }
-    if (methodName.equals("SET_NORMAL")) // USUARIO A NORMAL
+    if (methodName.equals("SET_NORMAL")) // NORMALIZAR
     {
       ESP32_Topic_respuesta = String(topic);
       ESP32_Topic_respuesta.replace("request", "response");

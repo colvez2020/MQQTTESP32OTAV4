@@ -195,7 +195,7 @@ void  ini_I2C_Data(char            flag_var_randon)
   store_flashESP32(Add_flash(TYPE_ID_CFG_MODO),Data_size(TYPE_ID_CFG_MODO),(char*)&ESP_WIFI_CFG_MODO);
   store_flashESP32(Add_flash(TYPE_PARAMETROS_CFG),Data_size(TYPE_PARAMETROS_CFG),(char*)&EEROMESP32_Para_CFG);  
   
-  END_ADD=TAM_ID_CFG_MODO+TAM_PARAMETROS_CFG;
+  END_ADD=TAM_ID_CFG_MODO+TAM_PARAMETROS_CFG+25;
   Serial.print("512=>END_ADD_EErom_ESP32=>");
   Serial.println(END_ADD);
  
@@ -409,11 +409,15 @@ int Add_flash(int type)
              +TAM_OTA_INFO*Add_data_index;
     break;
     //ESP32
+
     case TYPE_ID_CFG_MODO: 
         result=0; 
     break;
     case TYPE_PARAMETROS_CFG: 
         result=1; 
+    break;
+    case TYPE_FECHA_FAB:
+        result=TAM_PARAMETROS_CFG+2;
     break;
     default:
      result=0;

@@ -45,5 +45,6 @@ void MQTT_publish_topic(char* MQTT_OUTBONE_TOPIC,char* info);
 void MQTT_publish_Atributes_config(void);
 void MQTT_publish_GPS(void);
 void MQTT_publish_PZEM_DOSI_PRE(PZEM_DataIO PZEM_actual_data);
+void MQTT_publish_led(void);
 
 #endif
