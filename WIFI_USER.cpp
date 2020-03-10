@@ -91,7 +91,7 @@ bool Setup_WiFI(void)
       strcpy (ESP32_Para_CFG.N_telefono, custom_TELEFONO.getValue());
       strcpy (ESP32_Para_CFG.GSM_char, custom_ID_GSM.getValue()); 
       
-      ESP32_Para_CFG.MEN_LOCK_ID=EE_INI_VAL;
+      //ESP32_Para_CFG.MEN_LOCK_ID=EE_INI_VAL;
       ID_WIFIMOdo_status=WIFI_ID_SET;
       Serial.print("SSID_char=>");
       Serial.println(ESP32_Para_CFG.SSID_char);
@@ -113,8 +113,8 @@ bool Setup_WiFI(void)
       Serial.println(ESP32_Para_CFG.N_telefono);
       Serial.print("GSM_char=>");
       Serial.println(ESP32_Para_CFG.GSM_char);      
-      Serial.print("MEN_LOCK_ID=>");
-      Serial.println(ESP32_Para_CFG.MEN_LOCK_ID,HEX);
+      //Serial.print("MEN_LOCK_ID=>");
+      //Serial.println(ESP32_Para_CFG.MEN_LOCK_ID,HEX);
 
       store_flashESP32(Add_flash(TYPE_ID_CFG_MODO),Data_size(TYPE_ID_CFG_MODO),(char*)&ID_WIFIMOdo_status);
       store_flashESP32(Add_flash(TYPE_PARAMETROS_CFG),Data_size(TYPE_PARAMETROS_CFG),(char*)&ESP32_Para_CFG);  
@@ -162,48 +162,16 @@ bool Setup_WiFI(void)
   return true;
 }
 
+
 void Get_MAC_19(char * MAC)
 {
   byte mac_byte[6];
-  char mac_numero[3];
-  int  mac_int_HEX[6];
-  String result;
-
- 
 
   WiFi.macAddress(mac_byte);
-  
-  /*snprintf (mac_numero,2,"%s",&mac[5]);
-  mac_int_HEX[5]=atoi(mac_numero);
-  snprintf (mac_numero,2,"%s",&mac[4]);
-  mac_int_HEX[4]=atoi(mac_numero);
-  snprintf (mac_numero,2,"%s",&mac[3]);
-  mac_int_HEX[3]=atoi(mac_numero);
-  snprintf (mac_numero,2,"%s",&mac[2]);
-  mac_int_HEX[2]=atoi(mac_numero);
-  snprintf (mac_numero,2,"%s",&mac[1]);
-  mac_int_HEX[1]=atoi(mac_numero);
-  snprintf (mac_numero,2,"%s",&mac[0]);
-  mac_int_HEX[0]=atoi(mac_numero);
- 
-  Serial.print("MAC: ");
-  Serial.print(mac[5],HEX);
-  Serial.print(":");
-  Serial.print(mac[4],HEX);
-  Serial.print(":");
-  Serial.print(mac[3],HEX);
-  Serial.print(":");
-  Serial.print(mac[2],HEX);
-  Serial.print(":");
-  Serial.print(mac[1],HEX);
-  Serial.print(":");
-  Serial.println(mac[0],HEX);*/
-
   snprintf (MAC,18,"%X:%X:%X:%X:%X:%X",mac_byte[5],
                                        mac_byte[4],
                                        mac_byte[3],
                                        mac_byte[2],
                                        mac_byte[1],
                                        mac_byte[0]);
-  Serial.print(MAC);
 }

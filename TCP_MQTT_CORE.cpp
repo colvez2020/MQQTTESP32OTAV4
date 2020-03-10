@@ -24,7 +24,7 @@ int             SERVERPORT   = 1883;
 String          CLIENT_ID;
 String          MQTT_OUTBONE_TOPIC;
 String          PASSWORD_MQTT;
-const char      MQTT_SERVER[20]   = "tecno5.myddns.me";  
+const char      MQTT_SERVER[20]   = "tecno5.ddns.net";  
 int test=0;
 float KM_float=0.0;
 
@@ -86,7 +86,7 @@ void TCP_Connect_reattempt(char modo_conexcion)
 
 char TCP_MQTT_manager(char modo_conexcion)
 {
-  if (TCP_Connect_ok(modo_conexcion))                             //gPRS OK
+  if (TCP_Connect_ok(modo_conexcion))                             
   { 
     if(!ESP32_MQTT_client.connected()) 
     {
@@ -190,12 +190,14 @@ void MQTT_publish_Atributes_config(void)
   StaticJsonDocument<200> DOC_JSON_atributos;
   char DOC_JSON_atributos_buffer[201];
   char params_char[25];
+  char temp;
   
   read_flashESP32(Add_flash(TYPE_PARAMETROS_CFG),
                   Data_size(TYPE_PARAMETROS_CFG),
                   (char*)&ESP32_Parametros);
   //Parametos de caja congiguracion del USUARIO-WIFI
   //130 bytes
+  //--------------------------------------------------------------------------
   DOC_JSON_atributos["USER"]=ESP32_Parametros.USERCAJA_char;     //29 +6
   DOC_JSON_atributos["TLF"]=ESP32_Parametros.N_telefono;         //10 +5 + 2
   DOC_JSON_atributos["DIR"]=ESP32_Parametros.DIRECCION_char;         //10 +5 + 2
@@ -204,7 +206,8 @@ void MQTT_publish_Atributes_config(void)
                 200);
   Serial.println(DOC_JSON_atributos_buffer);
   MQTT_publish_topic((char*)"v1/devices/me/attributes",DOC_JSON_atributos_buffer);
-  //
+  //--------------------------------------------------------------------------
+
   DOC_JSON_atributos.clear();
   DOC_JSON_atributos["RED_OP"]=ESP32_Parametros.ORCOM_char;      //10 +8
   DOC_JSON_atributos["CONTRATO"]=ESP32_Parametros.CTOSUS_char;   //11 +10
@@ -214,8 +217,10 @@ void MQTT_publish_Atributes_config(void)
                 200);
   Serial.println(DOC_JSON_atributos_buffer);
   MQTT_publish_topic((char*)"v1/devices/me/attributes",DOC_JSON_atributos_buffer);
-  
+  //--------------------------------------------------------------------------
+
   DOC_JSON_atributos.clear();
+
   DOC_JSON_atributos["VERSION_SW"]=SW_VER;  //5  +9
   DOC_JSON_atributos["SSID"]=ESP32_Parametros.SSID_char;         //10 +6
   DOC_JSON_atributos["SSIDPW"]=ESP32_Parametros.SSID_PASS_char;  //15 +8
@@ -224,23 +229,25 @@ void MQTT_publish_Atributes_config(void)
                 200);
   Serial.println(DOC_JSON_atributos_buffer);
   MQTT_publish_topic((char*)"v1/devices/me/attributes",DOC_JSON_atributos_buffer); 
+  //--------------------------------------------------------------------------
 
   DOC_JSON_atributos.clear();
   snprintf (params_char,19,"#%s",ESP32_Parametros.IMYCO_ID_char);
   DOC_JSON_atributos["CAJA_ID"]=params_char;  //5  +9
   return_User_Config_char_20(params_char);
   DOC_JSON_atributos["MODO"]=params_char;
-  
-  
   serializeJson(DOC_JSON_atributos,
                 DOC_JSON_atributos_buffer, 
                 200);
   Serial.println(DOC_JSON_atributos_buffer);
   MQTT_publish_topic((char*)"v1/devices/me/attributes",DOC_JSON_atributos_buffer);
-  
+  //--------------------------------------------------------------------------
+ 
   DOC_JSON_atributos.clear();
-  DOC_JSON_atributos["DIA_COR_KW"]=28;  //5  +9
-  DOC_JSON_atributos["DIA_COR_PRE"]=1;
+  read_flashESP32(Add_flash(TYPE_FECHA_CORTE_KW),Data_size(TYPE_FECHA_CORTE_KW),(char*)&temp);  
+  DOC_JSON_atributos["DIA_COR_KW"]=temp;  //5  +9
+  read_flashESP32(Add_flash(TYPE_FECHA_CORTE_PR),Data_size(TYPE_FECHA_CORTE_PR),(char*)&temp);  
+  DOC_JSON_atributos["DIA_COR_PRE"]=temp;
   return_Limitacion_char_5(params_char);
   DOC_JSON_atributos["VALOR_LIMITACION"]=params_char;
   serializeJson(DOC_JSON_atributos,
@@ -248,17 +255,17 @@ void MQTT_publish_Atributes_config(void)
                 200);
   Serial.println(DOC_JSON_atributos_buffer);
   MQTT_publish_topic((char*)"v1/devices/me/attributes",DOC_JSON_atributos_buffer);
+  //--------------------------------------------------------------------------
 
   DOC_JSON_atributos.clear();
   DOC_JSON_atributos["PRE_RECAR"]="No aplica";         //Valor ultima recarga -1. Desactivado
   DOC_JSON_atributos["DOSI_DIAKW"]="No aplica";        //Valor de dosificacion diaria -1. Desactivado
-
-  Serial.println(DOC_JSON_atributos_buffer);
   serializeJson(DOC_JSON_atributos,
                 DOC_JSON_atributos_buffer, 
                 200);
   Serial.println(DOC_JSON_atributos_buffer);
   MQTT_publish_topic((char*)"v1/devices/me/attributes",DOC_JSON_atributos_buffer);
+  //--------------------------------------------------------------------------
 
   DOC_JSON_atributos.clear();
   DOC_JSON_atributos["DIV"]="IMYCO";
@@ -269,8 +276,6 @@ void MQTT_publish_Atributes_config(void)
   DOC_JSON_atributos["BLUE_ID"]=params_char;  //5  +9
   Get_MAC_19(params_char);
   DOC_JSON_atributos["MAC"]=params_char;
-
-  Serial.println(DOC_JSON_atributos_buffer);
   serializeJson(DOC_JSON_atributos,
                 DOC_JSON_atributos_buffer, 
                 200);
@@ -309,7 +314,7 @@ char MQTT_reconnect(void)
   #endif
   //boolean connect (clientID, username, password)
   if (ESP32_MQTT_client.connect(CLIENT_ID.c_str(),
-                                "TOKEN_0241",
+                                PASSWORD_MQTT.c_str(),
                                 NULL)) 
   {
     ESP32_MQTT_client.subscribe("v1/devices/me/rpc/request/+"); //llegan las peticiones de botones, indicador y perillas
@@ -329,17 +334,7 @@ char MQTT_reconnect(void)
 
 
 
-//publica en formato JSON, tomando el cuenta el tipo de informacion
-//SET_SW_ESTADO (RIN_RPC)        params true o false 
-//SET_KW_DOSI   (RIN_atributos)  params true o false
-//SET_KW_PRE    (RIN_atributos)  params true o false
-//SET_I_CORTE   (RIN_atributos)  params true o false
-//FECHA_corte   (RIN_atributos)  AÑO/MES/DIA/HORA 
-//FECHA_prepago (RIN_atributos)  AÑO/MES/DIA/HORA
-//USER_DATA     (_atributos)     MODO,NOMBRE DEL USUARIO,OPERADOR RED, CENTRO DE DISTRIBUCION, NUMERO DE CONTRATO
-//GPS_DATA      (TELE) latitud, longitud, ulatitud, ulongitud, failedChecksum, passedChecksum, satellites
-//MEDIDA_DATA   (TELE) rKWH, cKWH, sDKW/DIA, sPKW/MES
-//GSM_DATA      (_atributos)     Senal, IMEI GSM, NUMERO DE TELEFONO
+
 void MQTT_publish_topic(char* MQTT_OUTBONE_TOPIC,char* info)
 { 
   //ESP32_MQTT_client.publish(ESP32_Topic_respuesta.c_str(),ESP32_JSON_respuesta_char);
@@ -364,8 +359,8 @@ void MQTT_publish_PZEM_DOSI_PRE(PZEM_DataIO PZEM_actual_data)
   DOC_PZEM_DOSI_PRE["CKWH"]=PZEM_actual_data.energy_user;  //OK                                         //Consumo usuario
   //KM_float = KM_float + (random(0,100)/10.4);
   DOC_PZEM_DOSI_PRE["PRE_SALDO"]=Prepago_Configuracion_actual.KM_Saldo; //Saldo prepago disponible
-  Serial.print("SALDO=");
-  Serial.println(Prepago_Configuracion_actual.KM_Saldo);
+  //Serial.print("SALDO=");
+  //Serial.println(Prepago_Configuracion_actual.KM_Saldo);
   DOC_PZEM_DOSI_PRE["PRE_TOTALKW"]=Prepago_Configuracion_actual.KM_Consumo_total;   //Consumo total en modo prepago
   if(PZEM_actual_data.energy_alCorte==-1)
   {
@@ -402,6 +397,7 @@ void MQTT_publish_GPS(void)
   serializeJson(DOC_JSON_GPS,
                 JSON_GPS_buffer, 
                 200);
+  //Serial.println(JSON_GPS_buffer);
   MQTT_publish_topic((char*)"v1/devices/me/attributes",JSON_GPS_buffer);
   DOC_JSON_GPS.clear();
   DOC_JSON_GPS["latitude"]=Actual_GPS_DATA.Latitud_leida;
@@ -409,6 +405,7 @@ void MQTT_publish_GPS(void)
   serializeJson(DOC_JSON_GPS,
                 JSON_GPS_buffer, 
                 200);
+  //Serial.println(JSON_GPS_buffer);
   MQTT_publish_topic((char*)"v1/devices/me/telemetry",JSON_GPS_buffer);
 }
 
@@ -437,6 +434,7 @@ void MQTT_callback(char* topic, byte* payload, unsigned int len)
   StaticJsonDocument<200> DOC_JSON_Respuesta;
   //JsonObject root = DOC_JSON_payload.to<JsonObject>()
   float Limitacion_DASH,Dosificacion_DASH,Recarga_pregago_DASH;
+  char   Dia_corte_KW;
   char params_char[20];
   
 
@@ -454,7 +452,7 @@ void MQTT_callback(char* topic, byte* payload, unsigned int len)
   Serial.println(JSON_temp_buffer);
 
 
-  //Desseñalizo (leeo la cadena para luego aceder a sus datos usando el metodo JSON)
+  //Des_señalizo (leeo la cadena para luego aceder a sus datos usando el metodo JSON)
   //JSON_payload_char se borra en el proceso.
   
   auto error= deserializeJson(DOC_JSON_payload,(char*)JSON_temp_buffer);
@@ -470,6 +468,18 @@ void MQTT_callback(char* topic, byte* payload, unsigned int len)
     Recarga_pregago_DASH  = DOC_JSON_payload["PRE_RECAR"];
     Dosificacion_DASH =  DOC_JSON_payload["DOSI_DIAKW"] ;
     Limitacion_DASH =  DOC_JSON_payload["VALOR_LIMITACION"] ;
+    Dia_corte_KW =     DOC_JSON_payload["DIA_COR_KW"] ;
+    if(Dia_corte_KW!=0)
+    {
+      store_flashESP32(Add_flash(TYPE_FECHA_CORTE_KW),Data_size(TYPE_FECHA_CORTE_KW),(char*)&Dia_corte_KW);  
+      DOC_JSON_payload["DIA_COR_KW"]=Dia_corte_KW;
+      serializeJson(DOC_JSON_Respuesta,
+                    JSON_respuesta_buffer, 
+                    200);
+      Serial.println(JSON_respuesta_buffer);
+      MQTT_publish_topic((char*)"v1/devices/me/attributes",JSON_respuesta_buffer);
+
+    }
     if(Recarga_pregago_DASH!=0.0)
     {
       Parametro_Dash=true;
@@ -504,17 +514,33 @@ void MQTT_callback(char* topic, byte* payload, unsigned int len)
     if(Parametro_Dash)
     {
       return_User_Config_char_20(params_char);
-      DOC_JSON_payload["MODO"]=params_char;
+      DOC_JSON_Respuesta["MODO"]=params_char;
       return_User_relay_estado(&Parametro_bool);
       DOC_JSON_Respuesta["RELAY"]=Parametro_bool; 
       serializeJson(DOC_JSON_Respuesta,
                     JSON_respuesta_buffer, 
                     200);
+      Serial.println(JSON_respuesta_buffer);
       MQTT_publish_topic((char*)"v1/devices/me/attributes",JSON_respuesta_buffer);
     }
 
     // Check request method
     String methodName = String((const char*)DOC_JSON_payload["method"]);
+    
+    if (methodName.equals("GET_ONLINE"))
+    {
+      ESP32_Topic_respuesta = String(topic);
+      ESP32_Topic_respuesta.replace("request", "response");
+      DOC_JSON_Respuesta["ONLINE"]=false;      
+      serializeJson(DOC_JSON_Respuesta,
+                    JSON_respuesta_buffer, 
+                    200);
+      //Serial.print("topic_respuesta=>");
+      //Serial.println(ESP32_Topic_respuesta.c_str());
+      Serial.println(JSON_respuesta_buffer);
+      MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);
+      MQTT_publish_topic((char*)"v1/devices/me/attributes",JSON_respuesta_buffer);
+    }
     if (methodName.equals("SET_SUSPENDER")) //SUSPENDER USUARIO
     {
       ESP32_Topic_respuesta = String(topic);
@@ -527,8 +553,8 @@ void MQTT_callback(char* topic, byte* payload, unsigned int len)
       serializeJson(DOC_JSON_Respuesta,
                     JSON_respuesta_buffer, 
                     200);
-      Serial.print("topic_respuesta=>");
-      Serial.println(ESP32_Topic_respuesta.c_str());
+      //Serial.print("topic_respuesta=>");
+      //Serial.println(ESP32_Topic_respuesta.c_str());
       Serial.println(JSON_respuesta_buffer);
       MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);
       MQTT_publish_topic((char*)"v1/devices/me/attributes",JSON_respuesta_buffer);
@@ -542,8 +568,8 @@ void MQTT_callback(char* topic, byte* payload, unsigned int len)
       serializeJson(DOC_JSON_Respuesta,
                     JSON_respuesta_buffer, 
                     200);
-      Serial.print("topic_respuesta=>");
-      Serial.println(ESP32_Topic_respuesta.c_str());
+      //Serial.print("topic_respuesta=>");
+      //Serial.println(ESP32_Topic_respuesta.c_str());
       Serial.println(JSON_respuesta_buffer);
       //MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);
       MQTT_publish_topic((char*)"v1/devices/me/attributes",JSON_respuesta_buffer);
@@ -557,8 +583,8 @@ void MQTT_callback(char* topic, byte* payload, unsigned int len)
       serializeJson(DOC_JSON_Respuesta,
                     JSON_respuesta_buffer, 
                     200);
-      Serial.print("topic_respuesta=>");
-      Serial.println(ESP32_Topic_respuesta.c_str());
+      //Serial.print("topic_respuesta=>");
+      //Serial.println(ESP32_Topic_respuesta.c_str());
       Serial.println(JSON_respuesta_buffer);
       MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);
       MQTT_publish_topic((char*)"v1/devices/me/attributes",JSON_respuesta_buffer);
@@ -572,8 +598,8 @@ void MQTT_callback(char* topic, byte* payload, unsigned int len)
       serializeJson(DOC_JSON_Respuesta,
                     JSON_respuesta_buffer, 
                     200);
-      Serial.print("topic_respuesta=>");
-      Serial.println(ESP32_Topic_respuesta.c_str());
+      //Serial.print("topic_respuesta=>");
+      //Serial.println(ESP32_Topic_respuesta.c_str());
       Serial.println(JSON_respuesta_buffer);
       //MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);
       MQTT_publish_topic((char*)"v1/devices/me/attributes",JSON_respuesta_buffer);
@@ -586,8 +612,8 @@ void MQTT_callback(char* topic, byte* payload, unsigned int len)
       serializeJson(DOC_JSON_Respuesta,
                     JSON_respuesta_buffer, 
                     200);
-      Serial.print("topic_respuesta=>");
-      Serial.println(ESP32_Topic_respuesta.c_str());
+      //Serial.print("topic_respuesta=>");
+      //Serial.println(ESP32_Topic_respuesta.c_str());
       Serial.println(JSON_respuesta_buffer);
       MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);
       MQTT_publish_topic((char*)"v1/devices/me/attributes",JSON_respuesta_buffer);
@@ -601,8 +627,8 @@ void MQTT_callback(char* topic, byte* payload, unsigned int len)
       serializeJson(DOC_JSON_Respuesta,
                     JSON_respuesta_buffer, 
                     200);
-      Serial.print("topic_respuesta=>");
-      Serial.println(ESP32_Topic_respuesta.c_str());
+      //Serial.print("topic_respuesta=>");
+      //Serial.println(ESP32_Topic_respuesta.c_str());
       Serial.println(JSON_respuesta_buffer);
       //MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);
       MQTT_publish_topic((char*)"v1/devices/me/attributes",JSON_respuesta_buffer);
@@ -617,8 +643,8 @@ void MQTT_callback(char* topic, byte* payload, unsigned int len)
       serializeJson(DOC_JSON_Respuesta,
                     JSON_respuesta_buffer, 
                     200);
-      Serial.print("topic_respuesta=>");
-      Serial.println(ESP32_Topic_respuesta.c_str());
+      //Serial.print("topic_respuesta=>");
+      //Serial.println(ESP32_Topic_respuesta.c_str());
       Serial.println(JSON_respuesta_buffer);
       MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);
       MQTT_publish_topic((char*)"v1/devices/me/attributes",JSON_respuesta_buffer);

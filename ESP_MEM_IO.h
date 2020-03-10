@@ -3,7 +3,7 @@
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////Bandera INI EEPROM/////////////////////////////////////////////////////
-#define EE_INI_VAL 0X22
+#define EE_INI_VAL 0X99
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -11,37 +11,45 @@
 #define SW_VER "1.0.1"
 #define MQQT_LED 13
 //////////////////////////////////////////////////////EEPROM I2C//////////////////////////////////////////////////////// 
-#define DATA_INDEX_OVERDRIVE 21        //Corro 21 puestos porque la direccion 20, tiene un tamaño tambien.
-#define DATA_ADD_OFFSET sizeof(int)*9  //Nueve tipos de datos
+//Se reservan 20 bancos de datos, para cada variable.
+//La siguiente posicion vacia es la 21.
+#define DATA_INDEX_OVERDRIVE 21       
 
-#define TYPE_FLAGS             1
-#define TYPE_MEDIDOR_INFO      2
-#define TYPE_LIMITADOR_INFO    3
-#define TYPE_PREPAGO_INFO      4
-#define TYPE_DOFI_INFO         5
-#define TYPE_USER_INFO         6
-#define TYPE_GPS_INFO          7
-#define TYPE_OTA_INFO          8
+//8 tipos de datos, la siguiente posicion vacia es la 9.  
+#define DATA_ADD_OFFSET sizeof(int)*9  
 
-#define TAM_FLAGS          sizeof( All_flag)
-#define TAM_MEDIDOR_INFO   sizeof( Medidor_info)
-#define TAM_LIMITADOR_INFO sizeof( Limitador_info)
-#define TAM_PREPAGO_INFO   sizeof( Prepago_info)
-#define TAM_DOFI_INFO      sizeof( Dosifi_info)
-#define TAM_USER_INFO      sizeof( int)
-#define TAM_GPS_INFO       sizeof( GPS_info)
-#define TAM_OTA_INFO       sizeof( OTA_info)
+#define TYPE_FLAGS          1
+#define TYPE_MEDIDOR_INFO   2
+#define TYPE_LIMITADOR_INFO 3
+#define TYPE_PREPAGO_INFO   4
+#define TYPE_DOFI_INFO      5
+#define TYPE_USER_INFO      6
+#define TYPE_GPS_INFO       7
+#define TYPE_OTA_INFO       8
+
+#define TAM_FLAGS           sizeof( All_flag)
+#define TAM_MEDIDOR_INFO    sizeof( Medidor_info)
+#define TAM_LIMITADOR_INFO  sizeof( Limitador_info)
+#define TAM_PREPAGO_INFO    sizeof( Prepago_info)
+#define TAM_DOFI_INFO       sizeof( Dosifi_info)
+#define TAM_USER_INFO       sizeof( int)
+#define TAM_GPS_INFO        sizeof( GPS_info)
+#define TAM_OTA_INFO        sizeof( OTA_info)
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
 
 //////////////////////////////////////////////////////EEPROM ESP32 512///////////////////////////////////////////////
+#define TYPE_ID_CFG_MODO    20
+#define TYPE_PARAMETROS_CFG 21
+#define TYPE_FECHA_FAB      22
+#define TYPE_FECHA_CORTE_KW 23
+#define TYPE_FECHA_CORTE_PR 24
 
 
-#define TYPE_ID_CFG_MODO        20
-#define TYPE_PARAMETROS_CFG     21
-#define TYPE_FECHA_FAB          22
-
-#define TAM_ID_CFG_MODO         sizeof ( char)
-#define TAM_PARAMETROS_CFG      sizeof( Parametros_CFG)         
+#define TAM_ID_CFG_MODO     sizeof ( char)
+#define TAM_PARAMETROS_CFG  sizeof( Parametros_CFG)  
+#define TAM_FECHA_FAB       sizeof ( char)*8  
+#define TAM_FECHA_CORTE_KW  sizeof ( char)
+#define TAM_FECHA_CORTE_PR  sizeof ( char)     
 
 
 
@@ -58,7 +66,7 @@ struct Parametros_CFG
   char N_telefono[12];       //NUMERO DE TELEFONO
   char GSM_char[21];         //IMEI GPS
   char DIRECCION_char[30];   //DIRECCION USER
-  char MEN_LOCK_ID;
+ // char MEN_LOCK_ID;
 };
 //=20+20+20+12+6+12+30+16+11+20+1=168
 
@@ -80,7 +88,7 @@ struct Medidor_info
 struct Limitador_info
 {
    float  A_limitacion;           //Valor de limitacion
-   long    Tiempo_reconeccion_seg;
+   long   Tiempo_reconeccion_seg;
 };
 
 struct Prepago_info
@@ -95,11 +103,13 @@ struct Prepago_info
 
 struct Dosifi_info
 {
-    float KW_Cuota_Dia;
-    float KM_Disponible;
-    float KW_Dofi_Inicio_ref;
-    float KW_Consumo_total;
-    float Horas_estimadas;
+    float    KW_Cuota_Dia;
+    float    KM_Disponible;
+    float    KW_Disponible_dia_anterior;
+    float    KW_Dofi_Inicio_ref;
+    float    KW_Consumo_total;
+    boolean  Indicador_ref_hora;
+
 };
 
 struct GPS_info

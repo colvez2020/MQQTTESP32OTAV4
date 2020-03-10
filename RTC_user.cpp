@@ -3,13 +3,17 @@
 
 #define RTC_DEBUG
 
-static int TIME_Assert[5]={0,0,0,0,0};
-String     daysOfTheWeek[7] = { "Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado" };
-String     monthsNames[12] = { "Enero", "Febrero", "Marzo", "Abril", "Mayo",  "Junio", "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre" };
+
+
+String      daysOfTheWeek[7] = { "Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado" };
+String      monthsNames[12] = { "Enero", "Febrero", "Marzo", "Abril", "Mayo",  "Junio", "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre" };
+TIME_Assert Mes_Assert[13];
+TIME_Assert Dia_Assert[32];
+TIME_Assert Hora_Assert[25];
 RTC_MCP7940 rtc;
-DateTime   now_DATE;
+DateTime    now_DATE;
 
-
+//Temporizador por segundos
 bool time_validar_seg(long *time_ref,long seg_segmento)
 {
  if(*time_ref==0) //Empezado conteo (primera vez)
@@ -37,10 +41,13 @@ void Setup_RTC(void)
    #ifdef RTC_DEBUG
    Serial.println("Configuro RTC a fecha actual");
    #endif
+   //Recordar reinicir el IDE, para tener la fecha actual de conpilacion.
    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
    // Fijar a fecha y hora específica. En el ejemplo, 21 de Enero de 2016 a las 03:00:00
    // rtc.adjust(DateTime(2019,11, 14,10,21, 0));   
  }
+ for(int i=0;i<24;i++)
+  Hora_Assert[i].result=false;
 }
 
 
@@ -113,89 +120,63 @@ void Timetochar(char* Cadena)
                             
 }
 
-bool time_equal(int YY, int ME, int DD, int HH, int MI)
+bool time_equal(int ME, int DD, int HH)
 {
   now_DATE = rtc.now(); 
 
-  if(YY!=-1)
-  {
-    if(now_DATE.year()!=(YY+2000))
-     {
-       TIME_Assert[0]=0;
-       return false;
-     }
-     else
-     {
-       if(TIME_Assert[0]==0)
-       {
-         TIME_Assert[0]=1;
-         return true;
-       }  
-     }
-  }
   if(ME!=-1)
   {
-     if(now_DATE.month()!= ME)
+    if(now_DATE.day()!= ME)
     {
-       TIME_Assert[3]=0;
+       Mes_Assert[ME].result=false;;
        return false;
      }
      else
      {
-       if(TIME_Assert[3]==0)
+
+       if( Mes_Assert[ME].result==false)
        {
-         TIME_Assert[3]=1;
+         Mes_Assert[ME].result=true;
+         return true;
+       }  
+     }
+  }     
+  if(DD!=-1)
+  {
+    if(now_DATE.minute()!= DD)
+    {
+       Dia_Assert[DD].result=false;
+       return false;
+     }
+     else
+     {
+       if(Dia_Assert[DD].result==false)
+       {
+         Dia_Assert[DD].result=true;
          return true;
        }  
      }
   }
-  if(DD!=-1)
-  {
-    if(now_DATE.day()!= DD)
-    {
-       TIME_Assert[3]=0;
-       return false;
-     }
-     else
-     {
-       if(TIME_Assert[3]==0)
-       {
-         TIME_Assert[3]=1;
-         return true;
-       }  
-     }
-  }    
   if(HH!=-1)
   {
      if(now_DATE.hour()!= HH)
      {
-       TIME_Assert[3]=0;
-       return false;
+        Hora_Assert[HH].result=false;
+        return false;
      }
      else
      {
-       if(TIME_Assert[3]==0)
-       {
-         TIME_Assert[3]=1;
-         return true;
-       }  
+
+        //Serial.print("1.hora igual=>Hora_Assert[HH].result=");
+        //Serial.println(Hora_Assert[HH].result);
+        if(Hora_Assert[HH].result==false)
+        {
+          //Serial.print("2.hora igual=Hora_Assert[HH].result=");
+          Hora_Assert[HH].result=true;
+          //Serial.println(Hora_Assert[HH].result);
+          return true;
+        }  
      }
-  }    
-  if(MI!=-1)
-  {
-    if(now_DATE.minute()!= MI)
-    {
-       TIME_Assert[3]=0;
-       return false;
-     }
-     else
-     {
-       if(TIME_Assert[3]==0)
-       {
-         TIME_Assert[3]=1;
-         return true;
-       }  
-     }
-  }            
+  }        
  return false;
 }

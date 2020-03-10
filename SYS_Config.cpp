@@ -18,6 +18,9 @@ Limitador_info Lim_Config_Data;
 Medidor_info   Medidor_Config_Data;
 Prepago_info   Prepago_Config_Data;
 Dosifi_info    Dosifi_Config_Data;
+boolean        Mod_cuota_Dosificacion=false;
+boolean        Actualizar_referencia_dosifica=false;
+boolean        Nuevo_dia=false;
 int            User_Config_Data;
 char           User_relay_estado=EST_RELAY_CERRADO; //por defecto esta cerrado
 
@@ -84,8 +87,11 @@ void return_User_relay_estado(boolean * Relay_estado )
 
 float Energia_Corte_Run(float Energia_leida)
 {
+  char temp;
+  //Leo el dia de corte
+  read_flashESP32(Add_flash(TYPE_FECHA_CORTE_KW),Data_size(TYPE_FECHA_CORTE_KW),(char*)&temp);  
 
-   if(time_equal(-1,-1,1,0,0)) //Todos lo primeros de cada mes
+   if(time_equal(-1,(int)temp,-1)) //Todos lo primeros de cada mes
    {
       read_flashI2C(TYPE_MEDIDOR_INFO,  (char*)&Medidor_Config_Data);
       Medidor_Config_Data.KW_Inicio_Corte_ref=Energia_leida;
@@ -175,6 +181,7 @@ void Docificacion_Setup(float parametro)
   {
     User_Config_Data=EST_DOFICACION;
     Dosifi_Config_Data.KW_Cuota_Dia=parametro;
+    Mod_cuota_Dosificacion=true;
   }
   else
   {
@@ -190,26 +197,45 @@ void Docificacion_Setup(float parametro)
 
 void Docificacion_Run(float Energia_leida)
 {
+
   read_flashI2C(TYPE_DOFI_INFO,     (char*)&Dosifi_Config_Data);
-  //a las 8 pm todos los dias se reinicia
-  if(time_equal(-1,-1,-1,19,-1))
+  
+  //A las 8 pm todos los dias se reinicia o con una configuracion de cuota dia.
+  if((time_equal(-1,-1,18) && Dosifi_Config_Data.Indicador_ref_hora==false) || Mod_cuota_Dosificacion==true )// || Mod_cuota_Dosificacion==true)
   {
     Dosifi_Config_Data.KW_Dofi_Inicio_ref=Energia_leida;
+    Dosifi_Config_Data.KW_Disponible_dia_anterior=Dosifi_Config_Data.KM_Disponible;
+    Dosifi_Config_Data.Indicador_ref_hora=true;
+    Serial.println("dosi_referencia");
+    Serial.println(Dosifi_Config_Data.KW_Dofi_Inicio_ref);
+
     Relay_Action(1);
     User_relay_estado=EST_RELAY_CERRADO;
+    store_flashI2C(TYPE_DOFI_INFO,     (char*)&Dosifi_Config_Data);
+    Mod_cuota_Dosificacion=false;
   }
+  
+  //Permite que el siguiente dia se tome otra referencia.
+  if(time_equal(-1,-1,19))
+  {
+    Dosifi_Config_Data.Indicador_ref_hora=false;
+    Serial.println("reset_para Nuevo_dia");
+    store_flashI2C(TYPE_DOFI_INFO,     (char*)&Dosifi_Config_Data);
+  }
+
   //En modo Dosificador.
   Dosifi_Config_Data.KW_Consumo_total= Dosifi_Config_Data.KW_Consumo_total+
                                        (Energia_leida-Dosifi_Config_Data.KW_Dofi_Inicio_ref);
-  Dosifi_Config_Data.KM_Disponible=    Dosifi_Config_Data.KW_Cuota_Dia-
+  //-------------------------------------------------------------------//
+  Dosifi_Config_Data.KM_Disponible=    (Dosifi_Config_Data.KW_Cuota_Dia +Dosifi_Config_Data.KW_Disponible_dia_anterior)-
                                        (Energia_leida-Dosifi_Config_Data.KW_Dofi_Inicio_ref);
-
+  //-------------------------------------------------------------------//
   if(Dosifi_Config_Data.KM_Disponible<=0.0)
   {
     Relay_Action(0);    
     User_relay_estado=EST_RELAY_ABIERTO;
+    Dosifi_Config_Data.KM_Disponible=0;
   }
-     
 }
 
 void return_Dosifi_info(Dosifi_info* Dofi_Configuracion_actual)
@@ -271,11 +297,11 @@ void Prepago_Run(float Energia_leida)
 
   read_flashI2C(TYPE_PREPAGO_INFO,  (char*)&Prepago_Config_Data);
 
-  Serial.println("Modo_prepago");
+  //Serial.println("Modo_prepago");
   if(Actualizar_KW_Pre_flag) 
   {
-    Serial.print("inicio_prepago en ");
-    Serial.println(Energia_leida);
+    //Serial.print("inicio_prepago en ");
+    //Serial.println(Energia_leida);
     Prepago_Config_Data.KW_Pre_Inicio_ref=Energia_leida;
     Actualizar_KW_Pre_flag=0;
     store_flashI2C(TYPE_PREPAGO_INFO,  (char*)&Prepago_Config_Data);
@@ -288,10 +314,10 @@ void Prepago_Run(float Energia_leida)
 
   Prepago_Config_Data.KM_Saldo=Carga_actual-Delta_consumo;
                                 
-  Serial.print("Carga_prepago ");
-  Serial.println(Carga_actual);
-  Serial.print("delta consumo prepago ");
-  Serial.println(Delta_consumo);
+  //Serial.print("Carga_prepago ");
+  //Serial.println(Carga_actual);
+  //Serial.print("delta consumo prepago ");
+  //Serial.println(Delta_consumo);
   if(Prepago_Config_Data.KM_Saldo<=0.0)
   {
     Prepago_Config_Data.KM_Saldo=0;

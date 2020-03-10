@@ -4,6 +4,14 @@
 		"selected_items":
 		[
 			[
+				"Stirng",
+				"String"
+			],
+			[
+				"MQTT_",
+				"MQTT_publish_topic"
+			],
+			[
 				"reutn",
 				"return"
 			],
@@ -75,7 +83,43 @@
 			"file": "MQQTTESP32OTAV4.ino",
 			"settings":
 			{
-				"buffer_size": 8018,
+				"buffer_size": 8355,
+				"encoding": "UTF-8",
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "RTC_user.cpp",
+			"settings":
+			{
+				"buffer_size": 4398,
+				"encoding": "UTF-8",
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "/C/Users/David/Documents/Arduino/libraries/MCP7940_ADO/MCP7940_ADO.cpp",
+			"settings":
+			{
+				"buffer_size": 13845,
+				"encoding": "UTF-8",
+				"line_ending": "Unix"
+			}
+		},
+		{
+			"file": "ESP_MEM_IO.h",
+			"settings":
+			{
+				"buffer_size": 5131,
+				"encoding": "UTF-8",
+				"line_ending": "Windows"
+			}
+		},
+		{
+			"file": "WIFI_USER.cpp",
+			"settings":
+			{
+				"buffer_size": 6334,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
@@ -84,60 +128,37 @@
 			"file": "ESP_MEM_IO.cpp",
 			"settings":
 			{
-				"buffer_size": 14349,
+				"buffer_size": 15404,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
 		},
 		{
-			"file": "ESP_MEM_IO.h",
-			"settings":
-			{
-				"buffer_size": 4873,
-				"encoding": "UTF-8",
-				"line_ending": "Windows"
-			}
-		},
-		{
+			"contents": "#define TINY_GSM_MODEM_SIM800\n#include <TinyGsmClient.h> \n#include <PubSubClient.h>\n#include <ArduinoJson.h>\n#include <WiFi.h>\n#include \"ESP_MEM_IO.h\"\n#include \"MODEM_USER.h\"\n#include \"SYS_Config.h\"\n#include \"OTAcore.h\"\n#include \"GPS_main.h\"\n#include \"PzemModbus.h\"\n#include \"TCP_MQTT_CORE.h\"\n#include \"WIFI_USER.h\"\n\n#define TCPMQTT_DEBUG\n\nTinyGsm                GPRS_SESION(Serial2);\nTinyGsmClient          GSM_TCP_client(GPRS_SESION);\nWiFiClient             WIFI_TCP_client; // Use WiFiClient class to create TCP connections\nPubSubClient  \t       ESP32_MQTT_client;\nstatic Parametros_CFG  ESP32_Parametros;\n\nint             SERVERPORT   = 1883;\nString          CLIENT_ID;\nString          MQTT_OUTBONE_TOPIC;\nString          PASSWORD_MQTT;\nconst char      MQTT_SERVER[20]   = \"tecno5.myddns.me\";  \nint test=0;\nfloat KM_float=0.0;\n\n////////////////////Manager//////////////////\nint             waitCount = 0;                 // counter\nstatic char     conn_stat = 0;                       // Connection status for WiFi and MQTT:\nstatic char     first_attempt=1;\n//Se encarga de mantener la conexcion WIFI y MTQQ.\nbool TCP_Connect_ok(char modo_conexcion)\n{\n\tswitch(modo_conexcion)\n  {\n    case MODO_WIFI:\n      if (WiFi.status() == WL_CONNECTED)\n          return true;\n    break;\n    case MODO_GSM:\n      if (GSM_gprs_link_up())\n          return true;\n    break;\n  }\n\treturn false;\n}\n\n\nvoid TCP_Start(char modo_conexcion)\n{\n\tswitch(modo_conexcion)\n  {\n    case MODO_WIFI:\n      #ifdef TCPMQTT_DEBUG\n      Serial.print(\"Connecting to \");\n      Serial.println(ESP32_Parametros.SSID_char);\n      Serial.print(\"Pass \");\n      Serial.println(ESP32_Parametros.SSID_PASS_char);\n      #endif \n      WiFi.begin(ESP32_Parametros.SSID_char, ESP32_Parametros.SSID_PASS_char);\n    break;\n    case MODO_GSM:\n      GSM_set_gprs_link();                               //Si no se pude conectar.\n    break;\n  }\n}\n\nvoid TCP_Connect_reattempt(char modo_conexcion)\n{\n\tswitch(modo_conexcion)\n  {\n    case MODO_WIFI:\n      delay(1000);\n    break;\n    case MODO_GSM:\n      Setup_GSM();                          //Si no se pude conectar.\n      conn_stat=TCP_START_ST;\n    break;\n  }\n}\n\n\nchar TCP_MQTT_manager(char modo_conexcion)\n{\n  if (TCP_Connect_ok(modo_conexcion))                             //gPRS OK\n  { \n    if(!ESP32_MQTT_client.connected()) \n    {\n      if(conn_stat != MQTT_START_ST) \n       \twaitCount = 0;\n      conn_stat=MQTT_START_ST;                                    //ir a conectar MQTT\n    }\n  }\n  else\n  {\n    \n    if(first_attempt)\n      waitCount = 0;\n    if(conn_stat != TCP_WAIT_ST)  \n      conn_stat = TCP_START_ST;                                  //ir a coenctar gPRS\n  }\n\n  switch (conn_stat) \n  {\n    case TCP_START_ST: \n      #ifdef TCPMQTT_DEBUG   \n      Serial.println(\"MQTT and TCP down: start TCP\");\n      #endif\n     \tTCP_Start(modo_conexcion);\n      conn_stat = TCP_WAIT_ST;\n      first_attempt=0;\n    break;\n    case TCP_WAIT_ST:                                                       // WiFi starting, esperando conexion\n      Serial.println(\"TCP starting, wait : \"+ String(waitCount));\n      waitCount++;\n      TCP_Connect_reattempt(modo_conexcion);\n      if(waitCount==15)\n      {\n          Serial.println(\"TCP_CONNECT_TIMEOUT\");\n          waitCount = 0;\n          return TCP_MQTT_TIMEUP;\n      }   \n    break;\n    case MQTT_START_ST:                                                       // WiFi up, MQTT down: start MQTT\n      #ifdef TCPMQTT_DEBUG \n      Serial.println(\"TCP up, MQTT down: start MQTT\");\n      #endif\n      if(MQTT_reconnect())\n      {\n        Serial.println(\"MQTT connected\");\n        conn_stat = MQTT_MANTENICE_ST;\n        waitCount = 0;\n        break;\n      }\n      waitCount++;\n      Serial.println(\"TCP up, MQTT starting, wait : \"+ String(waitCount));\n      if(waitCount==10)\n      {\n          Serial.println(\"MQTT_CONNECT_TIMEOUT\");\n         \twaitCount = 0;\n          return TCP_MQTT_TIMEUP;\n      }       \n    break;\n    case MQTT_MANTENICE_ST:                                                       // WiFi up, MQTT up: Mantener MQTT\n      return MQTT_Maintenice_connect();                  \n    break;\n  }\n  return conn_stat;\n}\n\nvoid Setup_MQTT(char modo_conexcion)\n{\n\tread_flashESP32(Add_flash(TYPE_PARAMETROS_CFG),\n                  Data_size(TYPE_PARAMETROS_CFG),\n                  (char*)&ESP32_Parametros);\n\n\tswitch (modo_conexcion)\n  {\n    case MODO_WIFI:\n      ESP32_MQTT_client.setClient(WIFI_TCP_client);        //Permite una conexcion TCP\n      Serial.println(\"MQTT_MODO_WIFI\");\n    break;\n    case MODO_GSM:\n      ESP32_MQTT_client.setClient(GSM_TCP_client);\n      Serial.println(\"MQTT_MODO_GSM\");\n    break;\n  }\n  ESP32_MQTT_client.setServer(MQTT_SERVER,SERVERPORT);  //Configura parametros de conexion\n  ESP32_MQTT_client.setCallback(MQTT_callback);              //Asigna funcion_callaback\n}\n\n\nbool MQTT_Maintenice_connect(void)\n{\n  //Mantenimiento de conexcion\n  if (!ESP32_MQTT_client.connected()) \n  {\n     MQTT_reconnect();\n  }\n  return ESP32_MQTT_client.loop();  \n}\n\n\nvoid MQTT_publish_Atributes_config(void)\n{\n  StaticJsonDocument<200> DOC_JSON_atributos;\n  char DOC_JSON_atributos_buffer[201];\n  char params_char[25];\n  char temp;\n  \n  read_flashESP32(Add_flash(TYPE_PARAMETROS_CFG),\n                  Data_size(TYPE_PARAMETROS_CFG),\n                  (char*)&ESP32_Parametros);\n  //Parametos de caja congiguracion del USUARIO-WIFI\n  //130 bytes\n  //--------------------------------------------------------------------------\n  DOC_JSON_atributos[\"USER\"]=ESP32_Parametros.USERCAJA_char;     //29 +6\n  DOC_JSON_atributos[\"TLF\"]=ESP32_Parametros.N_telefono;         //10 +5 + 2\n  DOC_JSON_atributos[\"DIR\"]=ESP32_Parametros.DIRECCION_char;         //10 +5 + 2\n  serializeJson(DOC_JSON_atributos,\n                DOC_JSON_atributos_buffer, \n                200);\n  Serial.println(DOC_JSON_atributos_buffer);\n  MQTT_publish_topic((char*)\"v1/devices/me/attributes\",DOC_JSON_atributos_buffer);\n  //--------------------------------------------------------------------------\n\n  DOC_JSON_atributos.clear();\n  DOC_JSON_atributos[\"RED_OP\"]=ESP32_Parametros.ORCOM_char;      //10 +8\n  DOC_JSON_atributos[\"CONTRATO\"]=ESP32_Parametros.CTOSUS_char;   //11 +10\n  DOC_JSON_atributos[\"TRAFO\"]=ESP32_Parametros.CDTRAFO_ID_char;   //11 +10\n  serializeJson(DOC_JSON_atributos,\n                DOC_JSON_atributos_buffer, \n                200);\n  Serial.println(DOC_JSON_atributos_buffer);\n  MQTT_publish_topic((char*)\"v1/devices/me/attributes\",DOC_JSON_atributos_buffer);\n  //--------------------------------------------------------------------------\n\n  DOC_JSON_atributos.clear();\n  DOC_JSON_atributos[\"VERSION_SW\"]=SW_VER;  //5  +9\n  DOC_JSON_atributos[\"SSID\"]=ESP32_Parametros.SSID_char;         //10 +6\n  DOC_JSON_atributos[\"SSIDPW\"]=ESP32_Parametros.SSID_PASS_char;  //15 +8\n  serializeJson(DOC_JSON_atributos,\n                DOC_JSON_atributos_buffer, \n                200);\n  Serial.println(DOC_JSON_atributos_buffer);\n  MQTT_publish_topic((char*)\"v1/devices/me/attributes\",DOC_JSON_atributos_buffer); \n  //--------------------------------------------------------------------------\n\n  DOC_JSON_atributos.clear();\n  snprintf (params_char,19,\"#%s\",ESP32_Parametros.IMYCO_ID_char);\n  DOC_JSON_atributos[\"CAJA_ID\"]=params_char;  //5  +9\n  return_User_Config_char_20(params_char);\n  DOC_JSON_atributos[\"MODO\"]=params_char;\n  serializeJson(DOC_JSON_atributos,\n                DOC_JSON_atributos_buffer, \n                200);\n  Serial.println(DOC_JSON_atributos_buffer);\n  MQTT_publish_topic((char*)\"v1/devices/me/attributes\",DOC_JSON_atributos_buffer);\n  //--------------------------------------------------------------------------\n \n  DOC_JSON_atributos.clear();\n  read_flashESP32(Add_flash(TYPE_FECHA_CORTE_KW),Data_size(TYPE_FECHA_CORTE_KW),(char*)&temp);  \n  DOC_JSON_atributos[\"DIA_COR_KW\"]=temp;  //5  +9\n  read_flashESP32(Add_flash(TYPE_FECHA_CORTE_PR),Data_size(TYPE_FECHA_CORTE_PR),(char*)&temp);  \n  DOC_JSON_atributos[\"DIA_COR_PRE\"]=temp;\n  return_Limitacion_char_5(params_char);\n  DOC_JSON_atributos[\"VALOR_LIMITACION\"]=params_char;\n  serializeJson(DOC_JSON_atributos,\n                DOC_JSON_atributos_buffer, \n                200);\n  Serial.println(DOC_JSON_atributos_buffer);\n  MQTT_publish_topic((char*)\"v1/devices/me/attributes\",DOC_JSON_atributos_buffer);\n  //--------------------------------------------------------------------------\n\n  DOC_JSON_atributos.clear();\n  DOC_JSON_atributos[\"PRE_RECAR\"]=\"No aplica\";         //Valor ultima recarga -1. Desactivado\n  DOC_JSON_atributos[\"DOSI_DIAKW\"]=\"No aplica\";        //Valor de dosificacion diaria -1. Desactivado\n  serializeJson(DOC_JSON_atributos,\n                DOC_JSON_atributos_buffer, \n                200);\n  Serial.println(DOC_JSON_atributos_buffer);\n  MQTT_publish_topic((char*)\"v1/devices/me/attributes\",DOC_JSON_atributos_buffer);\n  //--------------------------------------------------------------------------\n\n  DOC_JSON_atributos.clear();\n  DOC_JSON_atributos[\"DIV\"]=\"IMYCO\";\n  DOC_JSON_atributos[\"FRA\"]=\"TECNO5 S.A.S\";\n  read_flashESP32(Add_flash(TYPE_FECHA_FAB),16,(char*)&params_char);\n  DOC_JSON_atributos[\"FECHA_F\"]=params_char;\n  snprintf (params_char,19,\"BT%s\",ESP32_Parametros.IMYCO_ID_char);\n  DOC_JSON_atributos[\"BLUE_ID\"]=params_char;  //5  +9\n  Get_MAC_19(params_char);\n  DOC_JSON_atributos[\"MAC\"]=params_char;\n  serializeJson(DOC_JSON_atributos,\n                DOC_JSON_atributos_buffer, \n                200);\n  Serial.println(DOC_JSON_atributos_buffer);\n  MQTT_publish_topic((char*)\"v1/devices/me/attributes\",DOC_JSON_atributos_buffer);\n  \n}\n\n//linea modificada en casa\n// int - the client state, which can take the following values (constants defined in PubSubClient.h):\n// -4 : MQTT_CONNECTION_TIMEOUT - the server didn't respond within the keepalive time\n// -3 : MQTT_CONNECTION_LOST - the network connection was broken\n// -2 : MQTT_CONNECT_FAILED - the network connection failed\n// -1 : MQTT_DISCONNECTED - the client is disconnected cleanly\n//  0 : MQTT_CONNECTED - the client is connected\n//  1 : MQTT_CONNECT_BAD_PROTOCOL - the server doesn't support the requested version of MQTT\n//  2 : MQTT_CONNECT_BAD_CLIENT_ID - the server rejected the client identifier\n//  3 : MQTT_CONNECT_UNAVAILABLE - the server was unable to accept the connection\n//  4 : MQTT_CONNECT_BAD_CREDENTIALS - the username/password were rejected\n//  5 : MQTT_CONNECT_UNAUTHORIZED - the client was not authorized to connect\nchar MQTT_reconnect(void) \n{\n  PASSWORD_MQTT=\"\";\n  PASSWORD_MQTT=String(\"TOKEN_\")+ String(ESP32_Parametros.IMYCO_ID_char); //TOKEN_XXXX\n  CLIENT_ID=\"\";\n  CLIENT_ID=String(\"E_\")+String(ESP32_Parametros.IMYCO_ID_char);  //EXXXX identifica al medidor en el sistema MQTT\n  Serial.println(\"Attempting MQTT connection...\");\n  \n  #ifdef TCPMQTT_DEBUG\n  Serial.print(\"Connecting to \");\n  Serial.println(MQTT_SERVER);\n  Serial.print(\"Cliente_ID: \");\n  Serial.println(CLIENT_ID.c_str());\n  Serial.print(\"Pass: \");\n  Serial.println(PASSWORD_MQTT.c_str());\n  #endif\n  //boolean connect (clientID, username, password)\n  if (ESP32_MQTT_client.connect(CLIENT_ID.c_str(),\n                                \"TOKEN_0241\",\n                                NULL)) \n  {\n    ESP32_MQTT_client.subscribe(\"v1/devices/me/rpc/request/+\"); //llegan las peticiones de botones, indicador y perillas\n    ESP32_MQTT_client.subscribe(\"v1/devices/me/attributes\");    //llegan las peticiones de los cuadro de dialogo\n    //Mando todos los atributos del dispositivo\n    MQTT_publish_Atributes_config();\n  } \n  else \n  {\n    Serial.print(\"MQTT_connect_failed, rc=\");\n    Serial.println(ESP32_MQTT_client.state());\n    return 0;\n  }\n  Serial.println(\"MQTT_INI_connected!!\");\n  return 1;\n}\n\n\n\n\nvoid MQTT_publish_topic(char* MQTT_OUTBONE_TOPIC,char* info)\n{ \n  //ESP32_MQTT_client.publish(ESP32_Topic_respuesta.c_str(),ESP32_JSON_respuesta_char);\n  ESP32_MQTT_client.publish(MQTT_OUTBONE_TOPIC,info);\n\n}\n//TELEMETRIA\n\nvoid MQTT_publish_PZEM_DOSI_PRE(PZEM_DataIO PZEM_actual_data)\n{\n  StaticJsonDocument<200> DOC_PZEM_DOSI_PRE;\n  char                    JSON_PZEM_DOSI_PRE_buffer[201];\n  Dosifi_info             Dosi_Configuracion_actual;\n  Prepago_info            Prepago_Configuracion_actual;\n\n  return_Dosifi_info(&Dosi_Configuracion_actual);\n  return_Prepago_info(&Prepago_Configuracion_actual);\n  //KM_float = KM_float + (random(0,100)/10.4);\n\n  DOC_PZEM_DOSI_PRE[\"VOL\"]=PZEM_actual_data.voltage;                                //Voltaje\n  DOC_PZEM_DOSI_PRE[\"RKWH\"]=PZEM_actual_data.energy;                                //Valor registro puro\n  DOC_PZEM_DOSI_PRE[\"CKWH\"]=PZEM_actual_data.energy_user;  //OK                                         //Consumo usuario\n  //KM_float = KM_float + (random(0,100)/10.4);\n  DOC_PZEM_DOSI_PRE[\"PRE_SALDO\"]=Prepago_Configuracion_actual.KM_Saldo; //Saldo prepago disponible\n  Serial.print(\"SALDO=\");\n  Serial.println(Prepago_Configuracion_actual.KM_Saldo);\n  DOC_PZEM_DOSI_PRE[\"PRE_TOTALKW\"]=Prepago_Configuracion_actual.KM_Consumo_total;   //Consumo total en modo prepago\n  if(PZEM_actual_data.energy_alCorte==-1)\n  {\n    DOC_PZEM_DOSI_PRE[\"CORTE_KWH\"]=\"No aplica\";\n  }\n  else\n  {\n   DOC_PZEM_DOSI_PRE[\"CORTE_KWH\"]=PZEM_actual_data.energy_alCorte;                  //Consumo desde el corte   \n  }\n  DOC_PZEM_DOSI_PRE[\"I\"]=PZEM_actual_data.current;                                  //Corriente actual \n  DOC_PZEM_DOSI_PRE[\"DOSI_DISPO\"]=Dosi_Configuracion_actual.KM_Disponible;          //Saldo actual disponible\n  serializeJson(DOC_PZEM_DOSI_PRE,\n                JSON_PZEM_DOSI_PRE_buffer, \n                200);\n  Serial.println(JSON_PZEM_DOSI_PRE_buffer);\n  MQTT_publish_topic((char*)\"v1/devices/me/telemetry\",JSON_PZEM_DOSI_PRE_buffer);\n}\n\nvoid MQTT_publish_GPS(void)\n{\n  GPS_info Actual_GPS_DATA;\n  StaticJsonDocument<200> DOC_JSON_GPS;\n  char                    JSON_GPS_buffer[201];\n\n  return_GPS_info_data(&Actual_GPS_DATA);\n\n  DOC_JSON_GPS[\"ULTIMA_LAT\"]=Actual_GPS_DATA.Latitud_ultima_conocida;\n  DOC_JSON_GPS[\"ULTIMA_LON\"]=Actual_GPS_DATA.Longitud_ultima_conocida;\n  DOC_JSON_GPS[\"SATELITES\"]=Actual_GPS_DATA.Satelites_found;\n  if(Actual_GPS_DATA.Fix_data==1)\n    DOC_JSON_GPS[\"POSCION_ENCONTRADA\"]=\"SI\";\n  else\n    DOC_JSON_GPS[\"POSCION_ENCONTRADA\"]=\"NO\";\n  serializeJson(DOC_JSON_GPS,\n                JSON_GPS_buffer, \n                200);\n  MQTT_publish_topic((char*)\"v1/devices/me/attributes\",JSON_GPS_buffer);\n  DOC_JSON_GPS.clear();\n  DOC_JSON_GPS[\"latitude\"]=Actual_GPS_DATA.Latitud_leida;\n  DOC_JSON_GPS[\"longitude\"]=Actual_GPS_DATA.Longitud_leida;\n  serializeJson(DOC_JSON_GPS,\n                JSON_GPS_buffer, \n                200);\n  MQTT_publish_topic((char*)\"v1/devices/me/telemetry\",JSON_GPS_buffer);\n}\n\nvoid MQTT_publish_led(void)\n{\n  boolean                 Parametro_bool; \n  StaticJsonDocument<200> DOC_JSON_led;\n  char                    JSON_led_buffer[201];\n\n  return_User_relay_estado(&Parametro_bool);\n  DOC_JSON_led[\"RELAY\"]=Parametro_bool; \n  serializeJson(DOC_JSON_led,\n              JSON_led_buffer, \n              200);\n  MQTT_publish_topic((char*)\"v1/devices/me/attributes\",JSON_led_buffer);\n}\n\nvoid MQTT_callback(char* topic, byte* payload, unsigned int len) \n{\n  char                    JSON_temp_buffer[201];\n  char                    JSON_respuesta_buffer[201];\n  String                  ESP32_Topic_respuesta;\n  boolean                 Parametro_bool;\n  boolean                 Parametro_Dash=false;\n  StaticJsonDocument<200> DOC_JSON_payload;\n  StaticJsonDocument<200> DOC_JSON_Respuesta;\n  //JsonObject root = DOC_JSON_payload.to<JsonObject>()\n  float Limitacion_DASH,Dosificacion_DASH,Recarga_pregago_DASH;\n  char   Dia_corte_KW;\n  char params_char[20];\n  \n\n  strncpy (JSON_temp_buffer, (char*)payload, len);\n  JSON_temp_buffer[len] = '\\0';\n  //JSON_respuesta_buffer\n \n  //OTA_info  ESP32_Estado_OTA_MQTT;\n  //boolean Param_boolean;\n\n  //#ifdef TCPMQTT_DEBUG\n  Serial.print(\"Message arrived [\");\n  Serial.print(topic);\n  Serial.println(\"]: \");\n  Serial.println(JSON_temp_buffer);\n\n\n  //Des_señalizo (leeo la cadena para luego aceder a sus datos usando el metodo JSON)\n  //JSON_payload_char se borra en el proceso.\n  \n  auto error= deserializeJson(DOC_JSON_payload,(char*)JSON_temp_buffer);\n  if (error) \n  {\n    Serial.print(F(\"Error al leer JSON_payload\"));\n    Serial.println(error.c_str());\n    return;\n  }\n  else\n  {\n    //Verifico Configuracion\n    Recarga_pregago_DASH  = DOC_JSON_payload[\"PRE_RECAR\"];\n    Dosificacion_DASH =  DOC_JSON_payload[\"DOSI_DIAKW\"] ;\n    Limitacion_DASH =  DOC_JSON_payload[\"VALOR_LIMITACION\"] ;\n    Dia_corte_KW =     DOC_JSON_payload[\"DIA_COR_KW\"] ;\n    if(Dia_corte_KW<0)\n    {\n      store_flashESP32(Add_flash(TYPE_FECHA_CORTE_KW),Data_size(TYPE_FECHA_CORTE_KW),(char*)&Dia_corte_KW);  \n      DOC_JSON_payload[\"DIA_COR_KW\"]=Dia_corte_KW;\n      serializeJson(DOC_JSON_Respuesta,\n                    JSON_respuesta_buffer, \n                    200);\n      MQTT_publish_topic((char*)\"v1/devices/me/attributes\",JSON_respuesta_buffer);\n\n    }\n    if(Recarga_pregago_DASH!=0.0)\n    {\n      Parametro_Dash=true;\n      Prepago_Setup(Recarga_pregago_DASH);\n      if(Recarga_pregago_DASH<0.0)\n      {\n        DOC_JSON_payload[\"PRE_RECAR\"]=\"No aplica\";\n        Normaliza_Setup();\n      }\n    }\n    if(Dosificacion_DASH!=0.0)\n    {\n      Parametro_Dash=true;\n      Docificacion_Setup(Dosificacion_DASH);\n      if(Dosificacion_DASH<0.0)\n      {\n        DOC_JSON_payload[\"DOSI_DIAKW\"]=\"No aplica\";\n        Normaliza_Setup();\n      }\n    }\n    if(Limitacion_DASH!=0.0)\n    {\n      Parametro_Dash=true;\n      Limitacion_Setup(Limitacion_DASH);\n      if(Dosificacion_DASH<0.0)\n      {\n        DOC_JSON_payload[\"VALOR_LIMITACION\"]=\"No aplica\";\n        Normaliza_Setup();\n      }\n    }\n\n    if(Parametro_Dash)\n    {\n      return_User_Config_char_20(params_char);\n      DOC_JSON_payload[\"MODO\"]=params_char;\n      return_User_relay_estado(&Parametro_bool);\n      DOC_JSON_Respuesta[\"RELAY\"]=Parametro_bool; \n      serializeJson(DOC_JSON_Respuesta,\n                    JSON_respuesta_buffer, \n                    200);\n      MQTT_publish_topic((char*)\"v1/devices/me/attributes\",JSON_respuesta_buffer);\n    }\n\n    // Check request method\n    String methodName = String((const char*)DOC_JSON_payload[\"method\"]);\n    if (methodName.equals(\"SET_SUSPENDER\")) //SUSPENDER USUARIO\n    {\n      ESP32_Topic_respuesta = String(topic);\n      ESP32_Topic_respuesta.replace(\"request\", \"response\");\n      DOC_JSON_Respuesta[\"SUSPENDER_MODO\"]=false;\n      /*return_User_relay_estado(&Parametro_bool);\n      DOC_JSON_Respuesta[\"RELAY\"]=Parametro_bool; \n      return_User_Config_char_20(params_char);\n      DOC_JSON_Respuesta[\"MODO\"]=params_char;  */ \n      serializeJson(DOC_JSON_Respuesta,\n                    JSON_respuesta_buffer, \n                    200);\n      Serial.print(\"topic_respuesta=>\");\n      Serial.println(ESP32_Topic_respuesta.c_str());\n      Serial.println(JSON_respuesta_buffer);\n      MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);\n      MQTT_publish_topic((char*)\"v1/devices/me/attributes\",JSON_respuesta_buffer);\n      Suspension_Setup();\n      //actualizo led y modo\n      DOC_JSON_Respuesta.clear();\n      return_User_relay_estado(&Parametro_bool);\n      DOC_JSON_Respuesta[\"RELAY\"]=Parametro_bool; \n      return_User_Config_char_20(params_char);\n      DOC_JSON_Respuesta[\"MODO\"]=params_char;   \n      serializeJson(DOC_JSON_Respuesta,\n                    JSON_respuesta_buffer, \n                    200);\n      Serial.print(\"topic_respuesta=>\");\n      Serial.println(ESP32_Topic_respuesta.c_str());\n      Serial.println(JSON_respuesta_buffer);\n      //MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);\n      MQTT_publish_topic((char*)\"v1/devices/me/attributes\",JSON_respuesta_buffer);\n    }\n    \n    if (methodName.equals(\"SET_RECONECTAR\")) //RECONECTAR USUARIO\n    {\n      ESP32_Topic_respuesta = String(topic);\n      ESP32_Topic_respuesta.replace(\"request\", \"response\");\n      DOC_JSON_Respuesta[\"RECONECTAR_MODO\"]=false;\n      serializeJson(DOC_JSON_Respuesta,\n                    JSON_respuesta_buffer, \n                    200);\n      Serial.print(\"topic_respuesta=>\");\n      Serial.println(ESP32_Topic_respuesta.c_str());\n      Serial.println(JSON_respuesta_buffer);\n      MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);\n      MQTT_publish_topic((char*)\"v1/devices/me/attributes\",JSON_respuesta_buffer);\n      Reconect_Setup();\n      //actualizo led\n      DOC_JSON_Respuesta.clear();\n      return_User_relay_estado(&Parametro_bool);\n      DOC_JSON_Respuesta[\"RELAY\"]=Parametro_bool;      \n      return_User_Config_char_20(params_char);\n      DOC_JSON_Respuesta[\"MODO\"]=params_char;   \n      serializeJson(DOC_JSON_Respuesta,\n                    JSON_respuesta_buffer, \n                    200);\n      Serial.print(\"topic_respuesta=>\");\n      Serial.println(ESP32_Topic_respuesta.c_str());\n      Serial.println(JSON_respuesta_buffer);\n      //MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);\n      MQTT_publish_topic((char*)\"v1/devices/me/attributes\",JSON_respuesta_buffer);\n    }\n    if (methodName.equals(\"SET_NORMAL\")) // NORMALIZAR\n    {\n      ESP32_Topic_respuesta = String(topic);\n      ESP32_Topic_respuesta.replace(\"request\", \"response\");\n      DOC_JSON_Respuesta[\"NORMAL_MODO\"]=false;\n      serializeJson(DOC_JSON_Respuesta,\n                    JSON_respuesta_buffer, \n                    200);\n      Serial.print(\"topic_respuesta=>\");\n      Serial.println(ESP32_Topic_respuesta.c_str());\n      Serial.println(JSON_respuesta_buffer);\n      MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);\n      MQTT_publish_topic((char*)\"v1/devices/me/attributes\",JSON_respuesta_buffer);\n      Normaliza_Setup();\n      //actualizo led\n      DOC_JSON_Respuesta.clear();\n      return_User_relay_estado(&Parametro_bool);\n      DOC_JSON_Respuesta[\"RELAY\"]=Parametro_bool;      \n      return_User_Config_char_20(params_char);\n      DOC_JSON_Respuesta[\"MODO\"]=params_char;   \n      serializeJson(DOC_JSON_Respuesta,\n                    JSON_respuesta_buffer, \n                    200);\n      Serial.print(\"topic_respuesta=>\");\n      Serial.println(ESP32_Topic_respuesta.c_str());\n      Serial.println(JSON_respuesta_buffer);\n      //MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);\n      MQTT_publish_topic((char*)\"v1/devices/me/attributes\",JSON_respuesta_buffer);\n\n    }\n    if (methodName.equals(\"GET_RELAY_ESTADO\")) //Controla la luz indicadora de conexcion electrica.\n    {\n      ESP32_Topic_respuesta = String(topic);\n      ESP32_Topic_respuesta.replace(\"request\", \"response\");\n      return_User_relay_estado(&Parametro_bool);\n      DOC_JSON_Respuesta[\"RELAY\"]=Parametro_bool;      \n      serializeJson(DOC_JSON_Respuesta,\n                    JSON_respuesta_buffer, \n                    200);\n      Serial.print(\"topic_respuesta=>\");\n      Serial.println(ESP32_Topic_respuesta.c_str());\n      Serial.println(JSON_respuesta_buffer);\n      MQTT_publish_topic((char*)ESP32_Topic_respuesta.c_str(),JSON_respuesta_buffer);\n      MQTT_publish_topic((char*)\"v1/devices/me/attributes\",JSON_respuesta_buffer);\n    }\n  }\n  /*\n  if(len>1)\n  {\n    for (int i = 1; i < len; i++) \n    {\n      ESP32_Parametro_char[i-1]=(char)payload[i];\n    }\n  }\n  snprintf (ESP32_Mensaje_MQTT,5,\"CMDOK\");\n  \n  switch (payload[0]) \n  {\n    case 'N':  \n       Normaliza_Setup();\n       MQTT_publish_topic(Topic_respuesta,ESP32_Mensaje_MQTT);\n    break;\n    case 'S':\n      Suspension_Setup();\n      MQTT_publish_topic(Topic_respuesta,ESP32_Mensaje_MQTT);\n    break;\n    case 'R': \n      Reconect_Setup();\n      MQTT_publish_topic(Topic_respuesta,ESP32_Mensaje_MQTT);\n    break; \n    case 'L':\n      Limitacion_Setup_4(ESP32_Parametro_char);\n      MQTT_publish_topic(Topic_respuesta,ESP32_Mensaje_MQTT);\n    break;  \n    case 'D':\n      Docificacion_Setup_4(ESP32_Parametro_char);\n      MQTT_publish_topic(Topic_respuesta,ESP32_Mensaje_MQTT); \n    break;\n    case 'P':\n      Prepago_Setup_4(ESP32_Parametro_char);\n      MQTT_publish_topic(Topic_respuesta,ESP32_Mensaje_MQTT);  \n    break;\n    case 'O': //INFORMACION PREPAGO\n      //AA,MM,DD,RW,SPW,DW\n      //(AA,MM,DD) Fecha ultima recarga\n      //(RW)       Cantidad ultima recarga\n      //(SPW)      Saldo previo\n      //(DW)       Saldo disponible\n      Estatus_prepago_50(ESP32_Mensaje_MQTT);\n      Serial.println(ESP32_Mensaje_MQTT);\n      MQTT_publish_topic(Topic_respuesta,ESP32_Mensaje_MQTT);\n    break;\n    case 'I': //INFORMACION DE PARAMETROS\n      //AA,MM,DD, CW, LA, DW, PW, ES, RR \n      //(AA,MM,DD) Fecha ultimo corte\n      //(CW)       Energuia activa ultimo corte\n      //(LA)       Limitado a \n      //(DW)       Energia Dofisicacion cuota\n      //(PW)       Energia Saldo Dosificacion\n      //(ES)       Estado o Modo de la caja (Normalizado (Lim a 80A), Limitado, Pregago, Dosificacion)\n      //(RR)       Estado actual del relay (Abierto o Cerrado)\n      Estatus_KWLIMDOFI_50(ESP32_Mensaje_MQTT);\n      Serial.println(ESP32_Mensaje_MQTT);\n      MQTT_publish_topic(Topic_respuesta,ESP32_Mensaje_MQTT);\n    break;\n    case 'G': //INFORMACION GPS\n      GPS_Status_100(ESP32_Mensaje_MQTT);\n      Serial.println(ESP32_Mensaje_MQTT);\n      MQTT_publish_topic(Topic_respuesta,ESP32_Mensaje_MQTT);\n    break;\n    case 'E': //INFORMACION MEDIDAS INSTANTANEA\n    //W/H,A,W,FP,V\n      Estatus_PZEM_50(ESP32_Mensaje_MQTT);\n      snprintf (ESP32_Mensaje_MQTT,100,\"%s, %d\",ESP32_Mensaje_MQTT,return_User_Config_Data());\n      Serial.println(ESP32_Mensaje_MQTT);\n      MQTT_publish_topic(Topic_respuesta,ESP32_Mensaje_MQTT);\n    break;\n    case 'F':  //Activa el modo_OTA (Leer archibo.bin de la AW3 y quemarlo usando Update.h)\n      ESP32_Estado_OTA_MQTT.OTA_Activado=1;\n      Almacenar_OTA_Data(&ESP32_Estado_OTA_MQTT);\n      Serial.print(\"Activo_modo OTA\");\n      Serial.print(\"Reinicio para exe OTA\");\n      ESP.restart();\n    break;\n    case 'W': //INFO_Estado_OTA\n      Estatus_OTA_50(ESP32_Mensaje_MQTT);\n      Serial.println(ESP32_Mensaje_MQTT);\n      MQTT_publish_topic(Topic_respuesta,ESP32_Mensaje_MQTT);\n    break;\n    default:\n    snprintf (ESP32_Mensaje_MQTT,16,\"CMD_DESCONOCIDO\");\n    MQTT_publish_topic(Topic_respuesta,ESP32_Mensaje_MQTT);\n    break;\n  }*/\n}\n\n",
 			"file": "TCP_MQTT_CORE.cpp",
+			"file_size": 27022,
+			"file_write_time": 132276478756946820,
 			"settings":
 			{
-				"buffer_size": 21330,
+				"buffer_size": 26300,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
 		},
 		{
-			"file": "/C/eclipse_Atmel_DUINO/GPS_Thingboard/GPS_Thingboard.ino",
+			"file": "/C/Users/David/Downloads/0241_operaciones_malo.json",
 			"settings":
 			{
-				"buffer_size": 4908,
-				"line_ending": "Windows"
-			}
-		},
-		{
-			"file": "TCP_MQTT_CORE.h",
-			"settings":
-			{
-				"buffer_size": 1266,
+				"buffer_size": 101207,
 				"encoding": "UTF-8",
-				"line_ending": "Windows"
+				"line_ending": "Unix"
 			}
 		},
 		{
 			"file": "SYS_Config.cpp",
 			"settings":
 			{
-				"buffer_size": 12644,
-				"encoding": "UTF-8",
-				"line_ending": "Windows"
-			}
-		},
-		{
-			"file": "SYS_Config.h",
-			"settings":
-			{
-				"buffer_size": 1532,
+				"buffer_size": 12727,
 				"encoding": "UTF-8",
 				"line_ending": "Windows"
 			}
@@ -192,18 +213,24 @@
 	],
 	"file_history":
 	[
-		"/C/eclipse_Atmel_DUINO/GPS_Thingboard/GPS_Thingboard.ino",
+		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/GPS_main.cpp",
+		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/RTC_user.cpp",
+		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/TCP_MQTT_CORE.h",
+		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/WIFI_USER.cpp",
+		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/TCP_MQTT_CORE.cpp",
+		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/Relaycmd.cpp",
+		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/SYS_Config.cpp",
+		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/WIFI_USER.h",
+		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/PzemModbus.cpp",
+		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/SYS_Config.h",
+		"/C/Users/David/Documents/Arduino/libraries/MCP7940_ADO/MCP7940_ADO.cpp",
 		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/ESP_MEM_IO.cpp",
+		"/C/eclipse_Atmel_DUINO/GPS_Thingboard/GPS_Thingboard.ino",
+		"/C/Users/David/Documents/Arduino/libraries/pubsubclient-master/src/PubSubClient.h",
+		"/C/Users/David/Downloads/suspender.json",
 		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/PzemModbus.h",
 		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/ESP_MEM_IO.h",
-		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/SYS_Config.h",
-		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/SYS_Config.cpp",
-		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/TCP_MQTT_CORE.h",
-		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/TCP_MQTT_CORE.cpp",
-		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/WIFI_USER.cpp",
 		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/GPS_main.h",
-		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/GPS_main.cpp",
-		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/PzemModbus.cpp",
 		"/C/eclipse_Atmel_DUINO/thingboard_MQTTpuro/thingboard_MQTTpuro.ino",
 		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTA/BTWIFIMQTT_user.cpp",
 		"/C/eclipse_Atmel_DUINO/thingboard/thingboard.ino",
@@ -233,9 +260,6 @@
 		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/BT_user.cpp",
 		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/MODEM_USER.h",
 		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/MODEM_USER.cpp",
-		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/Relaycmd.cpp",
-		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/RTC_user.cpp",
-		"/C/eclipse_Atmel_DUINO/MQQTTESP32OTAV4/WIFI_USER.h",
 		"/C/Users/David/Desktop/mosquitto.log",
 		"/C/Users/David/Documents/Arduino/libraries/WiFiManager-development/WiFiManager.cpp",
 		"/C/eclipse_Atmel_DUINO/GSM_test/GSM_test.ino",
@@ -265,7 +289,7 @@
 	],
 	"find":
 	{
-		"height": 36.0
+		"height": 49.0
 	},
 	"find_in_files":
 	{
@@ -280,6 +304,12 @@
 		"case_sensitive": false,
 		"find_history":
 		[
+			"Parametro_bool",
+			"store_flashI2C",
+			"MCP7940_ADDRESS",
+			"gps",
+			"GPS",
+			"FECHA_corte",
 			"Medidor_Config_Data",
 			"PZEM_DataIO",
 			"Medidor_info",
@@ -343,7 +373,7 @@
 	"groups":
 	[
 		{
-			"selected": 3,
+			"selected": 6,
 			"sheets":
 			[
 				{
@@ -352,15 +382,15 @@
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 8018,
+						"buffer_size": 8355,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								3129,
-								3129
+								5757,
+								5757
 							]
 						],
 						"settings":
@@ -370,7 +400,7 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 5602.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 7,
@@ -378,19 +408,19 @@
 				},
 				{
 					"buffer": 1,
-					"file": "ESP_MEM_IO.cpp",
+					"file": "RTC_user.cpp",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 14349,
+						"buffer_size": 4398,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								5066,
-								5081
+								3115,
+								3115
 							]
 						],
 						"settings":
@@ -400,27 +430,27 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 4212.0,
+						"translation.y": 2686.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 3,
+					"stack_index": 4,
 					"type": "text"
 				},
 				{
 					"buffer": 2,
-					"file": "ESP_MEM_IO.h",
+					"file": "/C/Users/David/Documents/Arduino/libraries/MCP7940_ADO/MCP7940_ADO.cpp",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 4873,
+						"buffer_size": 13845,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								306,
-								306
+								7978,
+								7978
 							]
 						],
 						"settings":
@@ -430,156 +460,190 @@
 							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 0.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 2,
-					"type": "text"
-				},
-				{
-					"buffer": 3,
-					"file": "TCP_MQTT_CORE.cpp",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 21330,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								413,
-								413
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/Deviot (Arduino IDE)/deviot.sublime-syntax",
-							"tab_size": 2,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 2592.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 0,
-					"type": "text"
-				},
-				{
-					"buffer": 4,
-					"file": "/C/eclipse_Atmel_DUINO/GPS_Thingboard/GPS_Thingboard.ino",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 4908,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								1235,
-								1252
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/Deviot (Arduino IDE)/deviot.sublime-syntax",
-							"tab_size": 2,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 1539.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 1,
-					"type": "text"
-				},
-				{
-					"buffer": 5,
-					"file": "TCP_MQTT_CORE.h",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 1266,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								684,
-								684
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/Deviot (Arduino IDE)/deviot.sublime-syntax"
-						},
-						"translation.x": 0.0,
-						"translation.y": 243.0,
-						"zoom_level": 1.0
-					},
-					"stack_index": 6,
-					"type": "text"
-				},
-				{
-					"buffer": 6,
-					"file": "SYS_Config.cpp",
-					"semi_transient": false,
-					"settings":
-					{
-						"buffer_size": 12644,
-						"regions":
-						{
-						},
-						"selection":
-						[
-							[
-								66,
-								43
-							]
-						],
-						"settings":
-						{
-							"syntax": "Packages/Deviot (Arduino IDE)/deviot.sublime-syntax",
-							"tab_size": 2,
-							"translate_tabs_to_spaces": true
-						},
-						"translation.x": 0.0,
-						"translation.y": 0.0,
+						"translation.y": 6318.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 5,
 					"type": "text"
 				},
 				{
-					"buffer": 7,
-					"file": "SYS_Config.h",
+					"buffer": 3,
+					"file": "ESP_MEM_IO.h",
 					"semi_transient": false,
 					"settings":
 					{
-						"buffer_size": 1532,
+						"buffer_size": 5131,
 						"regions":
 						{
 						},
 						"selection":
 						[
 							[
-								792,
-								792
+								1183,
+								1183
 							]
 						],
 						"settings":
 						{
-							"syntax": "Packages/Deviot (Arduino IDE)/deviot.sublime-syntax"
+							"syntax": "Packages/Deviot (Arduino IDE)/deviot.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
 						},
 						"translation.x": 0.0,
-						"translation.y": 324.0,
+						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 4,
+					"stack_index": 6,
+					"type": "text"
+				},
+				{
+					"buffer": 4,
+					"file": "WIFI_USER.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 6334,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								6334,
+								6334
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Deviot (Arduino IDE)/deviot.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 405.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 8,
+					"type": "text"
+				},
+				{
+					"buffer": 5,
+					"file": "ESP_MEM_IO.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 15404,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								6810,
+								6908
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Deviot (Arduino IDE)/deviot.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 5021.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 2,
+					"type": "text"
+				},
+				{
+					"buffer": 6,
+					"file": "TCP_MQTT_CORE.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 26300,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								13367,
+								13367
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Deviot (Arduino IDE)/deviot.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 9234.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 0,
+					"type": "text"
+				},
+				{
+					"buffer": 7,
+					"file": "/C/Users/David/Downloads/0241_operaciones_malo.json",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 101207,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								0,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/JavaScript/JSON.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 7047.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 8,
+					"file": "SYS_Config.cpp",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 12727,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								7648,
+								7648
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Deviot (Arduino IDE)/deviot.sublime-syntax",
+							"tab_size": 2,
+							"translate_tabs_to_spaces": true
+						},
+						"translation.x": 0.0,
+						"translation.y": 3726.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 3,
 					"type": "text"
 				}
 			]
@@ -666,7 +730,7 @@
 	"show_open_files": false,
 	"show_tabs": true,
 	"side_bar_visible": true,
-	"side_bar_width": 211.0,
+	"side_bar_width": 239.0,
 	"status_bar_visible": true,
 	"template_settings":
 	{

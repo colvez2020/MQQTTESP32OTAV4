@@ -18,10 +18,12 @@
 #include "MODEM_USER.h"
 
 //#define  MAIN_DEBUG
-#define USE_LCD
+//#define USE_LCD
+
 void RTCMen_ini_defecto(void);
 void Peripherals_ini(void);
 void Task_ini(void);
+void Planificador_tareas(void);
 
 
 
@@ -139,7 +141,7 @@ void loop()
   #endif
 
   ///////////////// Lee GPS y imprime medida /////////////////////////////
-  if(time_validar_seg(&time_muestreo_ref,5)==1 || fist_time_muestreo==1) 
+  if(time_validar_seg(&time_muestreo_ref,10)==1 || fist_time_muestreo==1) 
   { 
     GPS_RUN();
     
@@ -176,7 +178,7 @@ void loop()
         MQTT_publish_GPS();
       }
 
-      Planificador_tareas(PZEM_004T);
+      Planificador_tareas();
     }
     else
     {
@@ -222,13 +224,14 @@ void RTCMen_ini_defecto(void)
   #endif
   if(EE_flag_main.Memoria_ini_flag!=EE_INI_VAL)
   {
-     Serial.println("!!!inicializando EEPROM Y HORA!!!");
-     ini_I2C_Data(EE_INI_VAL);
-     Setup_RTC();             //No tiene datos de inicializacion en EEPROM
-     Datetochar(fecha_inicial);
-     Serial.print("Fecha_fabrica=>");
-     Serial.println(fecha_inicial);
-     store_flashESP32(Add_flash(TYPE_FECHA_FAB),16,(char*)&fecha_inicial);
+    Serial.println("!!!inicializando EEPROM Y HORA!!!");
+    ini_I2C_Data(EE_INI_VAL);
+    Setup_RTC();             //No tiene datos de inicializacion en EEPROM
+    Datetochar(fecha_inicial);
+    Serial.print("Fecha_fabrica=>");
+    Serial.println(fecha_inicial);
+    store_flashESP32(Add_flash(TYPE_FECHA_FAB),Data_size(TYPE_FECHA_FAB),(char*)&fecha_inicial);  
+ 
   }
   Read_index_reinicio(&Reset_ini_counter);
   Serial.print("Contador Reinicios=>");
@@ -242,6 +245,8 @@ void RTCMen_ini_defecto(void)
 
 void Peripherals_ini(void)
 {
+  unsigned char        ID_WIFIMOdo;
+
   #ifdef USE_LCD
   lcd.init();  
   lcd.backlight();
@@ -265,11 +270,27 @@ void Peripherals_ini(void)
   switch (modo_conexcion_st) 
   {
     case MODO_WIFI:
-      #ifdef USE_LCD
-      lcd.setCursor(0,0);
-      lcd.clear();
-      lcd.print("Inicio WIFI..");
-      #endif
+      read_flashESP32(Add_flash(TYPE_ID_CFG_MODO),
+                      Data_size(TYPE_ID_CFG_MODO),
+                      (char*)&ID_WIFIMOdo);
+      if(ID_WIFIMOdo==WIFI_ID_SCAN)
+      {
+        #ifdef USE_LCD
+        lcd.setCursor(0,0);
+        lcd.clear();
+        lcd.print("Modo web config");
+        #endif
+      }
+      else
+      {
+        #ifdef USE_LCD
+        lcd.setCursor(0,0);
+        lcd.clear();
+        lcd.print("Inicio WIFI..");
+        #endif
+      }
+
+
       if(!Setup_WiFI())
         Setup_WiFI();
     break;
@@ -312,7 +333,7 @@ void GSM_READ( void * pvParameters )
   } 
 }
 
-void Planificador_tareas(PZEM_DataIO PZEM_004T_Datos)
+void Planificador_tareas(void)
 {
    read_flashI2C(TYPE_USER_INFO,     (char*)&EE_User_main);
 

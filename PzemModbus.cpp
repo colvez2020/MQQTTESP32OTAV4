@@ -100,16 +100,16 @@ bool PZEM_all_measurements(PZEM_DataIO *p_measurements)
   #endif
   
   //Resultado final= lectura- delta_error;
-  p_measurements->energy=p_measurements->energy-
-                         EEPROMMedidor_info.KM_delta_error;
-  //p_measurements->energy_user= p_measurements->energy-
-  //                             EEPROMMedidor_info.KW_Inicio_Medida_ref;
-  p_measurements->energy_user=p_measurements->energy_user+(random(0,300)/100);
+  p_measurements->energy=      p_measurements->energy-
+                               EEPROMMedidor_info.KM_delta_error;
+  p_measurements->energy_user= p_measurements->energy-
+                              EEPROMMedidor_info.KW_Inicio_Medida_ref;
+  //p_measurements->energy_user=p_measurements->energy_user+(random(0,100)/100.0);
   //#ifdef PZEM_DEBUG
-  Serial.print("resultado_final:");
-  Serial.println(p_measurements->energy);
-  Serial.print("resultado_final_consumo:");
-  Serial.println(p_measurements->energy_user);
+  //Serial.print("resultado_final:");
+  //Serial.println(p_measurements->energy);
+  //Serial.print("resultado_final_consumo:");
+  //Serial.println(p_measurements->energy_user);
   //#endif
   
   return true;
