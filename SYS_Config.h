@@ -18,6 +18,7 @@
 #define EST_RELAY_ABIERTO      2     
 
 #include "ESP_MEM_IO.h"
+#include "PzemModbus.h"
 
 int  return_User_Config_Data(void);
 void return_User_Config_char_20(char* User_config_char);
@@ -44,6 +45,7 @@ void Suspension_Setup(void);
 void Reconect_Setup(void);
 
 void Tareas_Setup(void);
+void Planificador_tareas(PZEM_DataIO   PZEM_004T);
 void Almacenar_Configuracion_Data(void);
 
 #endif

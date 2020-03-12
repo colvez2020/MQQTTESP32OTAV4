@@ -9,6 +9,33 @@ HardwareSerial GPSserial(1);
 TinyGPSPlus    gpsNEO6M;
 long           time_GPS,time_GPS_ref;
 GPS_info       GPS_Status_data;
+TaskHandle_t        GSM_Task;
+
+
+void GPS_Task_ini(void)
+{
+  Serial.print("setup() running on core ");
+  Serial.println(xPortGetCoreID());
+   xTaskCreatePinnedToCore(
+      GPS_READ,  
+      "Task1", 
+      10000,   
+      NULL,   
+      0,   
+      &GSM_Task,  
+      0);  
+  delay(500);
+}
+
+void GPS_READ( void * pvParameters )
+{
+  Serial.print("Task1 running on core ");
+  Serial.println(xPortGetCoreID());
+  for(;;)
+  {
+     GPS_Maintenice();
+  } 
+}
 
 void GPS_Setup(void)
 {

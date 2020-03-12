@@ -25,14 +25,25 @@ String          CLIENT_ID;
 String          MQTT_OUTBONE_TOPIC;
 String          PASSWORD_MQTT;
 const char      MQTT_SERVER[20]   = "tecno5.ddns.net";  
-int test=0;
-float KM_float=0.0;
+//int test=0;
+//float KM_float=0.0;
+boolean         GSM_Setup_succes_flag=false;
 
 ////////////////////Manager//////////////////
 int             waitCount = 0;                 // counter
-static char     conn_stat = 0;                       // Connection status for WiFi and MQTT:
+static char     conn_stat = TCP_START_ST;                       // Connection status for WiFi and MQTT:
 static char     first_attempt=1;
 //Se encarga de mantener la conexcion WIFI y MTQQ.
+
+void Set_GSM_Setup_succes_flag(void)
+{
+  GSM_Setup_succes_flag=true;
+}
+
+void Clear_GSM_Setup_succes_flag(void)
+{
+  GSM_Setup_succes_flag=false;
+}
 bool TCP_Connect_ok(char modo_conexcion)
 {
 	switch(modo_conexcion)
@@ -42,29 +53,32 @@ bool TCP_Connect_ok(char modo_conexcion)
           return true;
     break;
     case MODO_GSM:
-      if (GSM_gprs_link_up())
-          return true;
+      if(GSM_Setup_succes_flag==true)
+      {
+        return GSM_gprs_link_up();
+      }
+      return false;
     break;
   }
 	return false;
 }
-
 
 void TCP_Start(char modo_conexcion)
 {
 	switch(modo_conexcion)
   {
     case MODO_WIFI:
-      #ifdef TCPMQTT_DEBUG
-      Serial.print("Connecting to ");
-      Serial.println(ESP32_Parametros.SSID_char);
-      Serial.print("Pass ");
-      Serial.println(ESP32_Parametros.SSID_PASS_char);
-      #endif 
-      WiFi.begin(ESP32_Parametros.SSID_char, ESP32_Parametros.SSID_PASS_char);
+      Connect_WIFI(ESP32_Parametros.SSID_char, ESP32_Parametros.SSID_PASS_char);
     break;
     case MODO_GSM:
-      GSM_set_gprs_link();                               //Si no se pude conectar.
+      if(GSM_Setup_succes_flag==false)
+      {
+        if(Setup_GSM())
+        {
+          GSM_Setup_succes_flag=true;
+           GSM_set_gprs_link();
+        }
+      }
     break;
   }
 }
@@ -74,18 +88,19 @@ void TCP_Connect_reattempt(char modo_conexcion)
 	switch(modo_conexcion)
   {
     case MODO_WIFI:
-      delay(1000);
     break;
     case MODO_GSM:
-      Setup_GSM();                          //Si no se pude conectar.
-      conn_stat=TCP_START_ST;
+      GSM_Setup_succes_flag=false;
     break;
   }
+  conn_stat=TCP_START_ST;
 }
 
 
 char TCP_MQTT_manager(char modo_conexcion)
 {
+  int Time_up_veces=2;
+  
   if (TCP_Connect_ok(modo_conexcion))                             
   { 
     if(!ESP32_MQTT_client.connected()) 
@@ -94,6 +109,7 @@ char TCP_MQTT_manager(char modo_conexcion)
        	waitCount = 0;
       conn_stat=MQTT_START_ST;                                    //ir a conectar MQTT
     }
+    //Serial.println("TCP UP");
   }
   else
   {
@@ -118,7 +134,9 @@ char TCP_MQTT_manager(char modo_conexcion)
       Serial.println("TCP starting, wait : "+ String(waitCount));
       waitCount++;
       TCP_Connect_reattempt(modo_conexcion);
-      if(waitCount==15)
+      if(modo_conexcion==MODO_WIFI)
+        Time_up_veces=4;
+      if(waitCount==Time_up_veces)
       {
           Serial.println("TCP_CONNECT_TIMEOUT");
           waitCount = 0;
@@ -138,7 +156,7 @@ char TCP_MQTT_manager(char modo_conexcion)
       }
       waitCount++;
       Serial.println("TCP up, MQTT starting, wait : "+ String(waitCount));
-      if(waitCount==10)
+      if(waitCount==4)
       {
           Serial.println("MQTT_CONNECT_TIMEOUT");
          	waitCount = 0;
@@ -171,6 +189,7 @@ void Setup_MQTT(char modo_conexcion)
   }
   ESP32_MQTT_client.setServer(MQTT_SERVER,SERVERPORT);  //Configura parametros de conexion
   ESP32_MQTT_client.setCallback(MQTT_callback);              //Asigna funcion_callaback
+  conn_stat=TCP_START_ST;
 }
 
 
@@ -343,35 +362,63 @@ void MQTT_publish_topic(char* MQTT_OUTBONE_TOPIC,char* info)
 }
 //TELEMETRIA
 
-void MQTT_publish_PZEM_DOSI_PRE(PZEM_DataIO PZEM_actual_data)
+void MQTT_publish_PZEM_DOSI_PRE(PZEM_DataIO PZEM_actual_data, char modo_conexcion)
 {
   StaticJsonDocument<200> DOC_PZEM_DOSI_PRE;
   char                    JSON_PZEM_DOSI_PRE_buffer[201];
   Dosifi_info             Dosi_Configuracion_actual;
   Prepago_info            Prepago_Configuracion_actual;
+  int                     modo_opecion;
 
   return_Dosifi_info(&Dosi_Configuracion_actual);
   return_Prepago_info(&Prepago_Configuracion_actual);
+  modo_opecion=return_User_Config_Data();
   //KM_float = KM_float + (random(0,100)/10.4);
-
-  DOC_PZEM_DOSI_PRE["VOL"]=PZEM_actual_data.voltage;                                //Voltaje
-  DOC_PZEM_DOSI_PRE["RKWH"]=PZEM_actual_data.energy;                                //Valor registro puro
-  DOC_PZEM_DOSI_PRE["CKWH"]=PZEM_actual_data.energy_user;  //OK                                         //Consumo usuario
-  //KM_float = KM_float + (random(0,100)/10.4);
-  DOC_PZEM_DOSI_PRE["PRE_SALDO"]=Prepago_Configuracion_actual.KM_Saldo; //Saldo prepago disponible
-  //Serial.print("SALDO=");
-  //Serial.println(Prepago_Configuracion_actual.KM_Saldo);
-  DOC_PZEM_DOSI_PRE["PRE_TOTALKW"]=Prepago_Configuracion_actual.KM_Consumo_total;   //Consumo total en modo prepago
-  if(PZEM_actual_data.energy_alCorte==-1)
+  #define EST_NORMAL      1     //Sin limitacion 80 max
+#define EST_LIMITADO    2     //Limitado a un valor
+#define EST_PENALIZADO  3     //Desconectado por sobrecorriente
+#define EST_DOFICACION  4     //En Dosifi
+#define EST_PREPAGO     5     //En prepago
+#define EST_SUS_NORMA   6     //En Suspencion (6-9) 
+#define EST_SUS_LIMI    7     //En Suspencion (6-9)
+#define EST_SUS_DOSI    8     //En Suspencion (6-9)
+#define EST_SUS_PREPA   9     //En Suspencion (6-9)
+  if(modo_conexcion==MODO_GSM)
   {
-    DOC_PZEM_DOSI_PRE["CORTE_KWH"]="No aplica";
+    DOC_PZEM_DOSI_PRE["CKWH"]=PZEM_actual_data.energy_user;  //OK
+    DOC_PZEM_DOSI_PRE["I"]=PZEM_actual_data.current;
+    switch (modo_opecion) 
+    {
+      case EST_DOFICACION:
+        DOC_PZEM_DOSI_PRE["DOSI_DISPO"]=Dosi_Configuracion_actual.KM_Disponible;
+      break;
+      case EST_PREPAGO:
+        DOC_PZEM_DOSI_PRE["PRE_SALDO"]=Prepago_Configuracion_actual.KM_Saldo; //Saldo prepago disponible
+        DOC_PZEM_DOSI_PRE["PRE_TOTALKW"]=Prepago_Configuracion_actual.KM_Consumo_total;   //Consumo total en modo prepago
+      break;
+    }
   }
   else
   {
-   DOC_PZEM_DOSI_PRE["CORTE_KWH"]=PZEM_actual_data.energy_alCorte;                  //Consumo desde el corte   
+    DOC_PZEM_DOSI_PRE["VOL"]=PZEM_actual_data.voltage;                                //Voltaje
+    DOC_PZEM_DOSI_PRE["RKWH"]=PZEM_actual_data.energy;                                //Valor registro puro
+    DOC_PZEM_DOSI_PRE["CKWH"]=PZEM_actual_data.energy_user;  //OK                                         //Consumo usuario
+    //KM_float = KM_float + (random(0,100)/10.4);
+    DOC_PZEM_DOSI_PRE["PRE_SALDO"]=Prepago_Configuracion_actual.KM_Saldo; //Saldo prepago disponible
+    //Serial.print("SALDO=");
+    //Serial.println(Prepago_Configuracion_actual.KM_Saldo);
+    DOC_PZEM_DOSI_PRE["PRE_TOTALKW"]=Prepago_Configuracion_actual.KM_Consumo_total;   //Consumo total en modo prepago
+    if(PZEM_actual_data.energy_alCorte==-1)
+    {
+      DOC_PZEM_DOSI_PRE["CORTE_KWH"]="No aplica";
+    }
+    else
+    {
+     DOC_PZEM_DOSI_PRE["CORTE_KWH"]=PZEM_actual_data.energy_alCorte;                  //Consumo desde el corte   
+    }
+    DOC_PZEM_DOSI_PRE["I"]=PZEM_actual_data.current;                                  //Corriente actual 
+    DOC_PZEM_DOSI_PRE["DOSI_DISPO"]=Dosi_Configuracion_actual.KM_Disponible;          //Saldo actual disponible   
   }
-  DOC_PZEM_DOSI_PRE["I"]=PZEM_actual_data.current;                                  //Corriente actual 
-  DOC_PZEM_DOSI_PRE["DOSI_DISPO"]=Dosi_Configuracion_actual.KM_Disponible;          //Saldo actual disponible
   serializeJson(DOC_PZEM_DOSI_PRE,
                 JSON_PZEM_DOSI_PRE_buffer, 
                 200);
@@ -379,26 +426,29 @@ void MQTT_publish_PZEM_DOSI_PRE(PZEM_DataIO PZEM_actual_data)
   MQTT_publish_topic((char*)"v1/devices/me/telemetry",JSON_PZEM_DOSI_PRE_buffer);
 }
 
-void MQTT_publish_GPS(void)
+void MQTT_publish_GPS(char modo_conexcion)
 {
   GPS_info Actual_GPS_DATA;
   StaticJsonDocument<200> DOC_JSON_GPS;
   char                    JSON_GPS_buffer[201];
 
+
   return_GPS_info_data(&Actual_GPS_DATA);
 
-  DOC_JSON_GPS["ULTIMA_LAT"]=Actual_GPS_DATA.Latitud_ultima_conocida;
-  DOC_JSON_GPS["ULTIMA_LON"]=Actual_GPS_DATA.Longitud_ultima_conocida;
-  DOC_JSON_GPS["SATELITES"]=Actual_GPS_DATA.Satelites_found;
-  if(Actual_GPS_DATA.Fix_data==1)
-    DOC_JSON_GPS["POSCION_ENCONTRADA"]="SI";
-  else
-    DOC_JSON_GPS["POSCION_ENCONTRADA"]="NO";
-  serializeJson(DOC_JSON_GPS,
+  if(modo_conexcion==MODO_WIFI)
+  {
+    DOC_JSON_GPS["ULTIMA_LAT"]=Actual_GPS_DATA.Latitud_ultima_conocida;
+    DOC_JSON_GPS["ULTIMA_LON"]=Actual_GPS_DATA.Longitud_ultima_conocida;
+    DOC_JSON_GPS["SATELITES"]=Actual_GPS_DATA.Satelites_found;
+    if(Actual_GPS_DATA.Fix_data==1)
+      DOC_JSON_GPS["POSCION_ENCONTRADA"]="SI";
+    else
+      DOC_JSON_GPS["POSCION_ENCONTRADA"]="NO";
+    serializeJson(DOC_JSON_GPS,
                 JSON_GPS_buffer, 
                 200);
-  //Serial.println(JSON_GPS_buffer);
-  MQTT_publish_topic((char*)"v1/devices/me/attributes",JSON_GPS_buffer);
+    MQTT_publish_topic((char*)"v1/devices/me/attributes",JSON_GPS_buffer);
+  }
   DOC_JSON_GPS.clear();
   DOC_JSON_GPS["latitude"]=Actual_GPS_DATA.Latitud_leida;
   DOC_JSON_GPS["longitude"]=Actual_GPS_DATA.Longitud_leida;

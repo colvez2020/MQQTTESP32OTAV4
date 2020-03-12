@@ -6,6 +6,7 @@
 #include "Rtc_user.h"
 #include "TCP_MQTT_CORE.h"
 
+
 //#define SYSCONFIG_DEBUG
 
 char           Actualizar_estado_user_flag=1;
@@ -23,6 +24,11 @@ boolean        Actualizar_referencia_dosifica=false;
 boolean        Nuevo_dia=false;
 int            User_Config_Data;
 char           User_relay_estado=EST_RELAY_CERRADO; //por defecto esta cerrado
+
+
+
+
+
 
 
 
@@ -425,11 +431,29 @@ void Tareas_Setup(void)
   read_flashI2C(TYPE_DOFI_INFO,     (char*)&Dosifi_Config_Data);
   read_flashI2C(TYPE_USER_INFO,     (char*)&User_Config_Data); 
   //#ifdef SYSCONFIG_DEBUG
-  Serial.print("Read_tipo_user:");
-  Serial.println(User_Config_Data);
+  //Serial.print("Read_tipo_user:");
+  //Serial.println(User_Config_Data);
  // #endif
 }
 
+void Planificador_tareas(PZEM_DataIO   PZEM_004T)
+{
+  switch (User_Config_Data) 
+  {
+    case EST_NORMAL:
+    case EST_LIMITADO:
+    case EST_PENALIZADO:
+      Limitacion_Run(PZEM_004T.current);
+    break;
+    case EST_DOFICACION:
+      Docificacion_Run(PZEM_004T.energy_user);
+    break; 
+    case EST_PREPAGO:
+      Prepago_Run(PZEM_004T.energy_user);
+    break;
+
+  }
+}
 
 
 void Almacenar_Configuracion_Data(void)

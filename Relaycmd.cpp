@@ -11,8 +11,7 @@ void Setup_relay(void)
 {
   pinMode(OPEN_RELAY_CMD,OUTPUT);
   pinMode(CLOSE_RELAY_CMD,OUTPUT);
-  test_relay();
-  Relay_Action(1); //Por defecto esta cerrado.
+  test_relay(1);
 }
 
 
@@ -33,17 +32,17 @@ void Relay_Action(char accion)
   digitalWrite(CLOSE_RELAY_CMD, LOW);    
 }
 
-void test_relay(void)
+void test_relay(int veces_user)
 {
-  int veces=0;
+  int veces_test;
   do
   {
     Serial.println("Abro_relay_test:");
     Relay_Action(0);
-    delay(2000);
+    delay(1000);
     Serial.println("Cierro_relay_test:");
     Relay_Action(1);
-    delay(2000);
-    veces++;
-  }while(veces!=2);
+    delay(1000);
+    veces_test++;
+  }while(veces_test!=veces_user);
 }

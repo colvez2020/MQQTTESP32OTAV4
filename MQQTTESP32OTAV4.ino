@@ -2,7 +2,7 @@
 #error Bluetooth is not enabled! Please run `make menuconfig` to and enable it
 #endif
 
-
+#include "esp32-hal-cpu.h"
 #include <LiquidCrystal_I2C.h>
 #include <AT24CX.h>
 #include "BT_user.h"
@@ -18,23 +18,20 @@
 #include "MODEM_USER.h"
 
 //#define  MAIN_DEBUG
-//#define USE_LCD
+#define USE_LCD
 
 void RTCMen_ini_defecto(void);
 void Peripherals_ini(void);
-void Task_ini(void);
-void Planificador_tareas(void);
-
 
 
 ///  ///////VARIALBLE_GLOBALES ///////////////////////////////////////
-int Reset_ini_counter=0;
+int           Reset_ini_counter=0;
 
 //Sistema de tiempo y eventos
-//long time_public,time_public_ref;
 long          time_muestreo_ref=0;
 long          time_salvardatos_ref=0;
 long          time_borrar_LCD_ref=0;
+long          time_reattempt_com_ref=0;
 
 
 //Medidor energia
@@ -43,20 +40,18 @@ unsigned char PZEM_read_OK=0;
 char          fist_time_muestreo=1;
 
 //Sistema comunicacion
-char   MQTT_StatusConect;
-char   MODO_CONFIGURACION_CAJA;
+static char   modo_conexcion_st=MODO_COMUNICACION_DEFAULT;
+char          MQTT_StatusConect;
+boolean       fist_time_com=true;
+boolean       Stop_reattempt_com=false;
+char          Attempt_contador;
+String        messageBT;
 
 
-char   msg_LCD[16];
-static char modo_conexcion_st;
-char   Attempt_contador;
+char          msg_LCD[16];
 
-
-String messageBT;
-
-//test repositot
 //////////////////////////// OBJETOS  ///////////////////////////////////////
-TaskHandle_t        GSM_Task;
+
 LiquidCrystal_I2C   lcd(0x27,16,4);
 
 //Sistema Memoria
@@ -72,15 +67,17 @@ void setup()
   SerialAT.begin(9600);   //Inicia puerto Serial comicacion(Moden SIM800)
   Serial.begin(9600);     //Inicia puerto Serial comicacion(PZEM, Programacion,DEBUG)
                           //GPS puerto Serial es inicializado en GSP_Setup() 
+  //Serial.println(F_CPU);
+  //Serial.println(getCpuFrequencyMhz());                       
   RTCMen_ini_defecto();   //Inicializa la memoria a sus valores por defecto, solo una vez.
   
 
  
   if(!OTA_Activado())
   {
-    Peripherals_ini(); //Activa todos los perifeciso (wifi,bluetooth,gsm,gps,lcd,bombillos led)
-                        //y lee desde la EEPROM sus valores anteriores antes de apagar sistema. 
-    Task_ini();         //Inicializa la tarea GPS_task in core 0.
+    Peripherals_ini();//Activa todos los perifeciso (wifi,bluetooth,gsm,gps,lcd,bombillos led)
+                      //y lee desde la EEPROM sus valores anteriores antes de apagar sistema. 
+    GPS_Task_ini();   //Inicializa la tarea GPS_task in core 0.
     lcd.clear(); 
   }
   else
@@ -102,25 +99,37 @@ void setup()
 void loop() 
 {
   /////////////////// sistema de conexcon TCP ///////////////////////////
-  MQTT_StatusConect= TCP_MQTT_manager(modo_conexcion_st);
-  if(MQTT_StatusConect!=true)
+  if(Stop_reattempt_com==false)
+    MQTT_StatusConect= TCP_MQTT_manager(modo_conexcion_st);
+  /*if(MQTT_StatusConect!=true)
     Attempt_contador++;
   if(MQTT_StatusConect==true)
      Attempt_contador=0;
-  if(Attempt_contador==20)
+  if(Attempt_contador==3)*/
+  if(MQTT_StatusConect==TCP_MQTT_TIMEUP)
   {
-    if(modo_conexcion_st!=MODO_WIFI)
+    if(fist_time_com==true || time_validar_seg(&time_reattempt_com_ref,60)==1)
     {
-      Serial.print("Cambio a WIFI");
-      modo_conexcion_st=MODO_WIFI;
+      fist_time_com=false;
+      Stop_reattempt_com=false;
+      if(modo_conexcion_st!=MODO_WIFI)
+      {
+        Serial.println("Cambio a WIFI");
+        modo_conexcion_st=MODO_WIFI;
+      }
+      else
+      {
+        Serial.println("Cambio a GSM");
+        modo_conexcion_st=MODO_GSM;
+      }
+      Serial.println("SET MQTT");
+      Setup_MQTT(modo_conexcion_st);      
     }
     else
     {
-      Serial.print("Cambio a GSM");
-      modo_conexcion_st=MODO_GSM;
+      Stop_reattempt_com=true;
     }
-    Serial.print("SET MQTT");
-    Setup_MQTT(modo_conexcion_st);
+
   }
 
   //////////////////// Imprime fecha y hora /////////////////////////////
@@ -172,13 +181,13 @@ void loop()
       lcd.setCursor(0,3);
       lcd.printstr(msg_LCD);
       #endif
-      if(MQTT_StatusConect)
+      if(MQTT_StatusConect==true)
       {
-        MQTT_publish_PZEM_DOSI_PRE(PZEM_004T);
-        MQTT_publish_GPS();
+        MQTT_publish_PZEM_DOSI_PRE(PZEM_004T,modo_conexcion_st);
+        MQTT_publish_GPS(modo_conexcion_st);
       }
 
-      Planificador_tareas();
+      Planificador_tareas(PZEM_004T);
     }
     else
     {
@@ -263,10 +272,7 @@ void Peripherals_ini(void)
                                                                                                  // -Dosificacion 
                                                                                                  // -Prepago.
                                                                                                  // -User
-  //prioridad   
-  modo_conexcion_st=MODO_WIFI;
-  //modo_conexcion_st=MODO_GSM;
-
+  
   switch (modo_conexcion_st) 
   {
     case MODO_WIFI:
@@ -280,6 +286,7 @@ void Peripherals_ini(void)
         lcd.clear();
         lcd.print("Modo web config");
         #endif
+        Setup_WiFI();
       }
       else
       {
@@ -289,18 +296,14 @@ void Peripherals_ini(void)
         lcd.print("Inicio WIFI..");
         #endif
       }
-
-
-      if(!Setup_WiFI())
-        Setup_WiFI();
     break;
     case MODO_GSM:  //intenta por GSM si no conecta usa WIFI por defecto
       #ifdef USE_LCD
       lcd.setCursor(0,0);
       lcd.print("Inicio GSM..");
       #endif
-      if(Setup_GSM())
-        GSM_set_gprs_link();
+      //if(Setup_GSM()==true)
+      //  GSM_set_gprs_link();
     break;
   }
   Setup_MQTT(modo_conexcion_st);
@@ -308,48 +311,6 @@ void Peripherals_ini(void)
   Setup_BT();
 }
 
-void Task_ini(void)
-{
-  Serial.print("setup() running on core ");
-  Serial.println(xPortGetCoreID());
-   xTaskCreatePinnedToCore(
-      GSM_READ,  
-      "Task1", 
-      10000,   
-      NULL,   
-      0,   
-      &GSM_Task,  
-      0);  
-  delay(500);
-}
 
-void GSM_READ( void * pvParameters )
-{
-  Serial.print("Task1 running on core ");
-  Serial.println(xPortGetCoreID());
-  for(;;)
-  {
-     GPS_Maintenice();
-  } 
-}
 
-void Planificador_tareas(void)
-{
-   read_flashI2C(TYPE_USER_INFO,     (char*)&EE_User_main);
 
-   switch (EE_User_main) 
-  {
-    case EST_NORMAL:
-    case EST_LIMITADO:
-    case EST_PENALIZADO:
-      Limitacion_Run(PZEM_004T.current);
-    break;
-    case EST_DOFICACION:
-      Docificacion_Run(PZEM_004T.energy_user);
-    break; 
-    case EST_PREPAGO:
-      Prepago_Run(PZEM_004T.energy_user);
-    break;
-
-  }
-}

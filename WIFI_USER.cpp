@@ -9,7 +9,7 @@
 #define WIFI_DEBUG
 
 ////////////////////WIFI_CFG//////////////////
-char                 WIFItimeout;
+
 String               Temp;
 unsigned char        ID_WIFIMOdo_status;
 Parametros_CFG       ESP32_Para_CFG;
@@ -127,41 +127,108 @@ bool Setup_WiFI(void)
   Serial.println(ESP32_Para_CFG.IMYCO_ID_char);
   Serial.println("**************************");
   
-  WIFItimeout=0;
+
+  return Connect_WIFI(ESP32_Para_CFG.SSID_char, ESP32_Para_CFG.SSID_PASS_char);
+}
+
+
+
+
+
+/*
+WL_CONNECTED: assigned when connected to a WiFi network;
+WL_NO_SHIELD: assigned when no WiFi shield is present;
+WL_IDLE_STATUS: it is a temporary status assigned when 
+                WiFi.begin() is called and remains active 
+                until the number of attempts expires 
+                (resulting in WL_CONNECT_FAILED) or a connection is 
+                established (resulting in WL_CONNECTED);
+WL_NO_SSID_AVAIL: assigned when no SSID are available;
+WL_SCAN_COMPLETED: assigned when the scan networks is completed;
+WL_CONNECT_FAILED: assigned when the connection fails for all the attempts;
+WL_CONNECTION_LOST: assigned when the connection is lost;
+WL_DISCONNECTED: assigned when disconnected from a network;*/
+
+boolean Connect_WIFI(char* SSID_char,char* SSID_PASS_char)
+{
+  int WIFItimeout=0;
+
   WiFi.mode(WIFI_STA);
   // We start by connecting to a WiFi network
   Serial.println();
   Serial.print("Connecting to ");
-  Serial.println(ESP32_Para_CFG.SSID_char);
+  Serial.println(SSID_char);
   Serial.print("Pass ");
-  Serial.println(ESP32_Para_CFG.SSID_PASS_char);
-
-  WiFi.begin(ESP32_Para_CFG.SSID_char, ESP32_Para_CFG.SSID_PASS_char);
+  Serial.println(SSID_PASS_char);
+  //Mostrar_redes();
+  if(!strcmp ("NULL",SSID_PASS_char))
+  {
+    Serial.println("Sin PASSWORDs");
+    WiFi.begin(SSID_char);
+  }
+  else
+  {
+    Serial.println("Con PASSWORDs");
+    WiFi.begin(SSID_char, SSID_PASS_char);
+  }
+ 
 
   while (WiFi.status() != WL_CONNECTED) 
   {
-    delay(1000);
+    delay(10);
     Serial.print(".");
     WIFItimeout++;
-    if(WIFItimeout==15)
+    if(WIFItimeout==150)
+      Serial.println(".");
+    if(WIFItimeout==300)
     {
+      Serial.println(".");
       Serial.println("WiFi NO connected_ini");
       return false;
     }   
   }
-  
-  if(WiFi.status() != WL_CONNECTED)
-    return false;
-
+  Serial.println(".");
   Serial.println("WiFi connected");
-  #ifdef WIFIMQTT_DEBUG
+  //#ifdef WIFIMQTT_DEBUG
   Serial.println("IP address: ");
   Serial.println(WiFi.localIP());
-  #endif 
+  //#endif 
 
   return true;
 }
 
+
+boolean Mostrar_redes(void)
+{
+
+  Serial.println("scan start");
+  int n = WiFi.scanNetworks();
+  Serial.println("scan done");
+  if (n == 0) 
+  {
+    Serial.println("no networks found");
+    return false;
+  } 
+  else 
+  {
+    Serial.print(n);
+    Serial.println(" networks found");
+    for (int i = 0; i < n; ++i) 
+    {
+      // Print SSID and RSSI for each network found
+      Serial.print(i + 1);
+      Serial.print(": ");
+      Serial.print(WiFi.SSID(i));
+      Serial.print(" (");
+      Serial.print(WiFi.RSSI(i));
+      Serial.print(")");
+      Serial.println((WiFi.encryptionType(i) == ENC_TYPE_NONE) ? " " : "*");
+      delay(10);
+      
+    }
+  }
+  return true;
+}
 
 void Get_MAC_19(char * MAC)
 {

@@ -1,6 +1,8 @@
 #ifndef GPSMAIN_H
 #define GPSMAIN_H
 
+void GPS_Task_ini(void);
+void GPS_READ( void * pvParameters );
 void GPS_Setup(void);
 void GPS_Maintenice(void);
 bool GPS_Longitud_Latitud(double* Latitud, double* longitud, unsigned int* SAT );

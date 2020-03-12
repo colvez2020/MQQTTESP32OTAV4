@@ -3,6 +3,8 @@
 #include "MODEM_USER.h"
 
 
+#define SIM800_RESET_IO 25
+
 #define SerialAT Serial2
 #define SerialMon Serial
 //#define modem_DEBUG
@@ -15,25 +17,37 @@ const char    gprsPass[] = "";
 char RSSID_estado[20];
 
 
+void Hard_reset_GSM(void)
+{
+  pinMode(SIM800_RESET_IO,OUTPUT);
+  digitalWrite(SIM800_RESET_IO, HIGH);
+  delay(50);
+  digitalWrite(SIM800_RESET_IO, LOW);
+  delay(150);
+  digitalWrite(SIM800_RESET_IO, HIGH);
+  delay(850);
+
+}
+
 bool Setup_GSM(void)
 {
-
-  
   SerialAT.begin(9600);
   ///////////////////////////////////////////////////
-  #ifdef modem_DEBUG
-  SerialMon.println("Initializing modem...");
-  #endif
+  SerialMon.println("Wait 3 seg Modem power_star up");
+  Hard_reset_GSM();
   modemGSM.restart();
-  SerialMon.println("Wait 5 seg Modem power_star up");
-  delay(5000);
+
   //////////////////////////////////////////////////
-  #ifdef modem_DEBUG
+  //#ifdef modem_DEBUG
   String modemInfo = modemGSM.getModemInfo();
   SerialMon.print("Modem Info: ");
   SerialMon.println(modemInfo);
-  #endif
-  modemGSM.getSimStatus();
+  //#endif
+  if(modemGSM.getSimStatus()!=SIM_READY)
+  {
+    SerialMon.print("Error SIMCARD");
+    return false;
+  }
   //////////////////////////////////////////////////
   SerialMon.println("Waiting for network...");
   if (modemGSM.waitForNetwork()) 
@@ -41,11 +55,12 @@ bool Setup_GSM(void)
      if (modemGSM.isNetworkConnected()) 
      {
         SerialMon.print("Network connected, SQ=");
-        Ponderar_RSSID_20(modemGSM.getSignalQuality(),RSSID_estado);
+        GET_RSSID_20(RSSID_estado);
         SerialMon.println(RSSID_estado);
         return true;
       }
   }
+  SerialMon.print("Antena error");
   return false;
 }
 
@@ -66,6 +81,7 @@ bool  GSM_set_gprs_link(void)
       return true;
     }
   }
+  SerialMon.println("No_Gprs_Connected");
   return false;
 }
 

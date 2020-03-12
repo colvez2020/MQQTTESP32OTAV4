@@ -297,7 +297,7 @@ void OTAsetup(void)
 
 unsigned char OTA_Activado(void)
 {
-  Serial.println("Leo_bandera_OTA");
+  //Serial.println("Leo_bandera_OTA");
   read_flashI2C(TYPE_OTA_INFO ,(char*)&Estado_OTA); 
   
   return Estado_OTA.OTA_Activado;

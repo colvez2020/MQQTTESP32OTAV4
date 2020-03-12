@@ -8,7 +8,8 @@
 #define WIFI_ID_DEFAULT    4   //Usar parametros por defecto
 
 bool Setup_WiFI(void);
-
+boolean Connect_WIFI(char* SSID_char,char* SSID_PASS_char);
+boolean Mostrar_redes(void);
 void Get_MAC_19(char * MAC);
 
 #endif

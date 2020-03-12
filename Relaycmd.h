@@ -3,6 +3,6 @@
 
 void Setup_relay(void);
 void Relay_Action(char accion);
-void test_relay(void);
+void test_relay(int veces_user);
 
 #endif

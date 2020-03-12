@@ -29,14 +29,16 @@ bool time_validar_seg(long *time_ref,long seg_segmento)
 
 void Setup_RTC(void)
 {
- if (!rtc.begin()) 
- {
+  int i;
+
+  if (!rtc.begin()) 
+  {
    Serial.println(F("Couldn't find RTC"));
-   while (1);
- }
- // Si se ha perdido la corriente, fijar fecha y hora
- //if (!rtc.isrunning()) 
- {
+   //while (1);
+  }
+  // Si se ha perdido la corriente, fijar fecha y hora
+  //if (!rtc.isrunning()) 
+  {
    // Fijar a fecha y hora de compilacion
    #ifdef RTC_DEBUG
    Serial.println("Configuro RTC a fecha actual");
@@ -45,9 +47,13 @@ void Setup_RTC(void)
    rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
    // Fijar a fecha y hora específica. En el ejemplo, 21 de Enero de 2016 a las 03:00:00
    // rtc.adjust(DateTime(2019,11, 14,10,21, 0));   
- }
- for(int i=0;i<24;i++)
-  Hora_Assert[i].result=false;
+  }
+  for(  i=0;i<13;i++)
+    Mes_Assert[i].result=false;
+  for(  i=0;i<31;i++)
+    Dia_Assert[i].result=false;
+  for(  i=0;i<24;i++)
+    Hora_Assert[i].result=false;
 }
 
 

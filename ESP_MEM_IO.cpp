@@ -20,8 +20,8 @@ int             EEROM_Estado_User;
 OTA_info        EEROM_Estado_OTA;
 
 Parametros_CFG  EEROMESP32_Para_CFG;
-char            ESP_WIFI_CFG_MODO;
-AT24C32 I2CMEN;
+char            ESP_WIFI_CFG_MODO=WIFI_MODO_USER;
+AT24C32         I2CMEN;
 
 void  Read_index_reinicio(int* pReinicio_index)
 {
@@ -116,10 +116,9 @@ void  ini_I2C_Data(char            flag_var_randon)
   //#endif  
   
   //Activar para usar opcion configurar WIFI y parametros por WEB
-  ESP_WIFI_CFG_MODO=WIFI_ID_SCAN;  
+  //ESP_WIFI_CFG_MODO=WIFI_ID_SCAN;  
   
-  //Activar para usar valores por defecto (De todos los parametros)
-  //ESP_WIFI_CFG_MODO=WIFI_ID_DEFAULT;  
+
 
   //Iniciacilizacion men parametros
   for(i=0;i<20;i++)  
@@ -159,9 +158,12 @@ void  ini_I2C_Data(char            flag_var_randon)
   {
      //BYTES 157
     Serial.println("Set_atributos x defecto");
-    snprintf (EEROMESP32_Para_CFG.IMYCO_ID_char,5,"0241");
+    i=ID_CAJA_DEFAULT;
+    snprintf (EEROMESP32_Para_CFG.IMYCO_ID_char,5,"0%d",i);
     snprintf (EEROMESP32_Para_CFG.SSID_char,19,"Tecno5");
     snprintf (EEROMESP32_Para_CFG.SSID_PASS_char,19,"Cuatin05321");
+    //snprintf (EEROMESP32_Para_CFG.SSID_char,19,"David");
+    //snprintf (EEROMESP32_Para_CFG.SSID_PASS_char,19,"NULL");
     snprintf (EEROMESP32_Para_CFG.ORCOM_char,19,"EMCALI");
     snprintf (EEROMESP32_Para_CFG.CDTRAFO_ID_char,11,"TRAFO12343");
     snprintf (EEROMESP32_Para_CFG.CTOSUS_char,11,"#3433246");
@@ -507,28 +509,28 @@ int Data_size(int type)
 
 void LED_Setup(void)
 {
-  pinMode(MQQT_LED,OUTPUT);
-  digitalWrite(MQQT_LED, HIGH);
+  pinMode(MQQT_LED_IO,OUTPUT);
+  digitalWrite(MQQT_LED_IO, HIGH);
 }
 
 void MQTT_LED(char action)
 {
   if(action) //Prendido
-     digitalWrite(MQQT_LED,LOW ); 
+     digitalWrite(MQQT_LED_IO,LOW ); 
   else
-     digitalWrite(MQQT_LED,HIGH); 
+     digitalWrite(MQQT_LED_IO,HIGH); 
 }
 
 void MQTT_LED_CONNECTED_OK(void)
 {
     if(intermitente_wifi_flag==0)
     {
-      digitalWrite(MQQT_LED, LOW); 
+      digitalWrite(MQQT_LED_IO, LOW); 
       intermitente_wifi_flag=1; //Prendo
     }
     else
     {
-      digitalWrite(MQQT_LED, HIGH); 
+      digitalWrite(MQQT_LED_IO, HIGH); 
       intermitente_wifi_flag=0; //Apago
     }
     delay(300);
