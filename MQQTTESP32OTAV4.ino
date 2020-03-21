@@ -18,7 +18,7 @@
 #include "MODEM_USER.h"
 
 //#define  MAIN_DEBUG
-#define USE_LCD
+//#define USE_LCD
 
 void RTCMen_ini_defecto(void);
 void Peripherals_ini(void);
